@@ -5,12 +5,11 @@
 #
 use Math::Polynomial::Solve qw(poly_roots set_hessenberg);
 use Math::Complex;
-use Getopt::Long;
+#use Getopt::Long;
 
 my $hess = 0;
 
-GetOptions("hess" => \$hess,
-);
+#GetOptions("hess" => \$hess,);
 
 set_hessenberg($hess);
 
