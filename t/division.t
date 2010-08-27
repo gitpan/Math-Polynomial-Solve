@@ -3,7 +3,9 @@
 
 use Test::Simple tests => 6;
 
-use Math::Polynomial::Solve qw(poly_divide);
+use Math::Polynomial::Solve qw(:utility);
+use strict;
+use warnings;
 
 require "t/coef.pl";
 

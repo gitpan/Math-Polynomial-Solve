@@ -1,7 +1,7 @@
-	Math::Polynomial::Solve, version 2.53 BETA, 23 Aug 2010.
+	Math::Polynomial::Solve, version 2.53 BETA, 26 Aug 2010.
 ----------------------------------------------------------------
 BETA version features Sturm polynomial for root counting. More
-to come with this feature. See documetation, and the :sturm tag.
+to come with this feature. See documentation, and the :sturm tag.
 ----------------------------------------------------------------
 
 Copyright (c) 2010 John M. Gamble. All rights reserved. This program is
@@ -25,8 +25,8 @@ in the web page Karl's Calculus Tutor,
 Installation:
 ----------------------------------------------------------------
 The usual way.  Unpack the archive:
-	gzip -d Math-Polynomial-Solve-2.50.tar.gz
-	tar xvf Math-Polynomial-Solve-2.50.tar
+	gzip -d Math-Polynomial-Solve-2.53_2.tar.gz
+	tar xvf Math-Polynomial-Solve-2.53_2.tar
 
 This package now makes use of Module::Build, and the Build.PL script,
 but you can still use Makefile.PL, which is provided:

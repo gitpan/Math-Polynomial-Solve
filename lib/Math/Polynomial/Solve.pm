@@ -47,7 +47,7 @@ use warnings;
 @EXPORT_OK = ( @{ $EXPORT_TAGS{'classical'} }, @{ $EXPORT_TAGS{'numeric'} },
 	@{ $EXPORT_TAGS{'sturm'} }, @{ $EXPORT_TAGS{'utility'} } );
 
-our $VERSION = '2.53_1';
+our $VERSION = '2.53_2';
 
 #
 # Set to 1 to force poly_roots() to use the QR Hessenberg method
@@ -1261,7 +1261,7 @@ or
   use Math::Polynomial::Solve qw(:sturm);
 
   # Find the number of unique real roots of the polynomial.
-  my $unique_roots = poly_real_root_count(@coefficients);
+  my $no_of_unique_roots = poly_real_root_count(@coefficients);
 
 =head1 DESCRIPTION
 
@@ -1445,7 +1445,7 @@ There are no default exports. The functions may be named in an export list.
 
 There are also four export tags.
 
-=over 4
+=over 3
 
 =item classical
 
@@ -1487,9 +1487,8 @@ Div. PMA, Katholieke Universiteit Leuven, Belgium. This function is an
 almost direct translation of that script, and I owe Herman Bruyninckx
 for creating it in the first place. 
 
-Beginning with version 2.51 of this module, Dr. Nikalls's paper is included
-in the references directory. Dr. Nickalls has also made his paper
-available at
+Beginning with version 2.51, Dr. Nikalls's paper is included in the references
+directory of this package. Dr. Nickalls has also made his paper available at
 L<http://www.nickalls.org/dick/papers/maths/cubic1993.pdf>.
 
 This article is also available on L<http://www.2dcurves.com/cubic/cubic.html>,
@@ -1540,26 +1539,28 @@ Eigenvalues", Math. Comp., v64,#210, pp.763-776(1995).
 
 For starting out, you may want to read
 
-Numerical Recipes in C, by William Press, Brian P. Flannery, Saul A. Teukolsky,
-and William T. Vetterling, Cambridge University Press. They have a web site for
-their book, L<http://www.nr.com/>.
+William Press, Brian P. Flannery, Saul A. Teukolsky, and William T. Vetterling I<Numerical Recipes in C>.
+Cambridge University Press, 1988.
+They have a web site for their book, L<http://www.nr.com/>.
 
 =head2 Sturm's Sequence
 
-100 Great Problems of Elementary Mathematics: Their History and Solution, by
-Heinrich Dorrie, translated by David Antin.  Discusses Charles Sturm's 1829 paper
-with an eye towards mathematical proof rather than an algorithm, but is still
-very useful.
+Do¨rrie, Heinrich. I<100 Great Problems of Elementary Mathematics; Their History and Solution>.
+New York: Dover Publications, 1965. Translated by David Antin.
 
-Graphics Gems, by xxx. The chapter "Using Sturm Sequences to Bracket Real Roots
+Discusses Charles Sturm's 1829 paper with an eye towards mathematical proof
+rather than an algorithm, but is still very useful.
+
+Glassner, Andrew S. I<Graphics Gems>. Boston: Academic Press, 1990. 
+
+The chapter "Using Sturm Sequences to Bracket Real Roots
 of Polynomial Equations" (by D. G. Hook and P. R. McAree) has a clearer
 description of the actual steps needed to implement Sturm's method.
 
-
 =head1 SEE ALSO
 
-Forsythe, George E., Michael A. Malcolm, and Cleve B. Moler (1977),
-Computer Methods for Mathematical Computations, Prentice-Hall.
+Forsythe, George E., Michael A. Malcolm, and Cleve B. Moler
+I<Computer Methods for Mathematical Computations>. Prentice-Hall, 1977.
 
 =head1 AUTHOR
 

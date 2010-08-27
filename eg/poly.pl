@@ -3,15 +3,8 @@
 #
 #
 #
-use Math::Polynomial::Solve qw(poly_roots set_hessenberg);
+use Math::Polynomial::Solve qw(:numeric);
 use Math::Complex;
-#use Getopt::Long;
-
-my $hess = 0;
-
-#GetOptions("hess" => \$hess,);
-
-set_hessenberg($hess);
 
 my @x = poly_roots(@ARGV);
 print rootformat(@x), "\n";

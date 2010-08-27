@@ -31,7 +31,8 @@ while (@case)
 	my @chain = poly_sturm_chain( @polynomial );
 
 	my($fn) = @{$chain[$#chain]};	# get the last (constant) polynomial.
-	ok($c == $fn, "Polynomial: [" . join(", ", @polynomial) . "], fn = $fn");
+	ok(fltcmp($c, $fn) == 0, "Polynomial: [" . join(", ", @polynomial) . "], fn = $fn");
+
 	#print "\nPolynomial: [", join(", ", @polynomial), "]\n";
 	#foreach my $j (0..$#chain)
 	#{

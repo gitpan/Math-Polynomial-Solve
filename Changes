@@ -1,5 +1,13 @@
 Revision history for Perl extension Math::Polynomial::Solve.
 
+2.53_2
+     Aug 26 2010
+	- Added another (cubic) test to cubic.t and poly0.t.
+     Aug 25 2010
+	- CPAN testers found a failing test in sturm0.t for some machines.
+	  Altered the test to make use of fltcmp(), which I hope will solve
+	  what I suspect is a precision problem.
+	- Made consistent the book references in the Acknowledgements section.
 2.53_1
      Aug 23 2010
 	- poly_real_roots() becomes poly_real_root_count().
@@ -20,6 +28,8 @@ Revision history for Perl extension Math::Polynomial::Solve.
 	- Added a test file for the poly_division() function and of course
 	  made the function available under the :utility tag.
      Jun 24 2010
+	- Stefan Petrea suggested adding Sturm's sequence to the module.  After
+	  looking it up, it seemed like a good idea, so I began by:
 	- Added poly_derivative() to the export list and to the :utility tag.
 	- Added poly_antiderivative() to the export list and to the :utility
 	  tag, mostly for completeness's sake, although I may find a legitimate
