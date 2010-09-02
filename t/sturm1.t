@@ -1,7 +1,7 @@
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl sturm01.t'
 
-use Test::Simple tests => 13;
+use Test::Simple tests => 17;
 
 use Math::Polynomial::Solve qw(:sturm);
 use strict;
@@ -9,6 +9,8 @@ use warnings;
 require "t/coef.pl";
 
 my @case = (
+	[1], 0,
+	[5, 3], 1,
 	[1, 0, 0, -1], 1,
 	[1, 0, 0, 1], 1,
 	[1, 0, 0, 0, 1], 0,
@@ -16,6 +18,8 @@ my @case = (
 	[1, 0, 0, 0, 0, 1], 1,
 	[1, 0, 0, 0, 0, -1], 1,
 	[1, 3, 3, 1], 1,
+	[1, 3, 0, -1], 3,
+	[1, 0, 3, -1], 1,
 	[1, -13, 59, -87], 1,
 	[1, -4, 4, -16], 1,
 	[1, -6, 11, -6], 3,

@@ -1,5 +1,14 @@
 Revision history for Perl extension Math::Polynomial::Solve.
 
+2.53_3
+     Aug 31 2010
+	- Added early return to poly_sturm_chain() when it's passed a
+	  constant or a linear equation (yeah, I know, but one still has to
+	  check).
+	- A couple more tests each for sturm0.t and sturm1.t.
+	- Finally use (and then fix) sturm_sign_chain().
+	- Expose some more internal functions under the :sturm tag, and
+	  document them.
 2.53_2
      Aug 26 2010
 	- Added another (cubic) test to cubic.t and poly0.t.

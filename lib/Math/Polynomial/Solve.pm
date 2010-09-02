@@ -32,6 +32,8 @@ use warnings;
 	'sturm' => [ qw(
 		poly_real_root_count
 		poly_sturm_chain
+		sturm_sign_chain
+		sturm_sign_count
 	) ],
 	'utility' => [ qw(
 		epsilon
@@ -47,7 +49,7 @@ use warnings;
 @EXPORT_OK = ( @{ $EXPORT_TAGS{'classical'} }, @{ $EXPORT_TAGS{'numeric'} },
 	@{ $EXPORT_TAGS{'sturm'} }, @{ $EXPORT_TAGS{'utility'} } );
 
-our $VERSION = '2.53_2';
+our $VERSION = '2.53_3';
 
 #
 # Set to 1 to force poly_roots() to use the QR Hessenberg method
@@ -1071,7 +1073,12 @@ sub poly_sturm_chain(@)
 	my $f2 = [poly_derivative(@coefficients)];
 
 	push @chain, $f1;
+
+	return @chain if ($degree < 1);
+
 	push @chain, $f2;
+
+	return @chain if ($degree < 2);
 
 	do
 	{
@@ -1082,50 +1089,11 @@ sub poly_sturm_chain(@)
 	}
 	while ($#$r > 0);
 
+	#
+	## poly_sturm_chain:
+	### @chain
+	#
 	return @chain;
-}
-
-sub sturm_sign_count(@)
-{
-	my @sign_seq = @_;
-	my $scnt = 0;
-
-	my $s1 = shift @sign_seq;
-	for my $s2 (@sign_seq)
-	{
-		$scnt++ if ($s1 != $s2);
-		$s1 = $s2;
-	}
-
-	return $scnt;
-}
-
-sub sturm_sign_minus_infinity($)
-{
-	my($chain_ref) = @_;
-	my @signs;
-
-	foreach my $c (@$chain_ref)
-	{
-		my @coefficients = @$c;
-		push @signs, ((($#coefficients & 1) == 1)? -1: 1) * sign($coefficients[0]);
-	}
-
-	return @signs
-}
-
-sub sturm_sign_plus_infinity($)
-{
-	my($chain_ref) = @_;
-	my @signs;
-
-	foreach my $c (@$chain_ref)
-	{
-		my @coefficients = @$c;
-		push @signs, sign($coefficients[0]);
-	}
-
-	return @signs
 }
 
 #
@@ -1140,22 +1108,64 @@ sub poly_real_root_count(@)
 	my(@coefficients) = @_;
 
 	my @chain = poly_sturm_chain(@coefficients);
-	### @chain
-	my @minus_inf_signs = sturm_sign_minus_infinity(\@chain);
-	my @plus_inf_signs  = sturm_sign_plus_infinity(\@chain);
-	return sturm_sign_count(@minus_inf_signs) - sturm_sign_count(@plus_inf_signs);
+
+	return sturm_sign_count(sturm_sign_minus_inf(\@chain)) -
+		sturm_sign_count(sturm_sign_plus_inf(\@chain));
 }
 
-sub sturm_sign_chains($$)
+#
+# @signs = sturm_minus_inf(\@chain);
+#
+# Return an array of signs from the chain at minus infinity.
+#
+sub sturm_sign_minus_inf($)
+{
+	my($chain_ref) = @_;
+	my @signs;
+
+	foreach my $c (@$chain_ref)
+	{
+		my @coefficients = @$c;
+		push @signs, ((($#coefficients & 1) == 1)? -1: 1) * sign($coefficients[0]);
+	}
+
+	return @signs
+}
+
+#
+# @signs = sturm_plus_inf(\@chain);
+#
+# Return an array of signs from the chain at infinity.
+#
+sub sturm_sign_plus_inf($)
+{
+	my($chain_ref) = @_;
+	my @signs;
+
+	foreach my $c (@$chain_ref)
+	{
+		my @coefficients = @$c;
+		push @signs, sign($coefficients[0]);
+	}
+
+	return @signs
+}
+
+#
+# @sign_chains = sturm_sign_chain(\@chain, \@xvals);
+#
+# Return an array of signs for each x-value passed in each function in
+# the Sturm chain.
+#
+sub sturm_sign_chain($$)
 {
 	my($chain_ref, $xvals_ref) = @_;
+	my $fn_count = $#$chain_ref;
+	my $x_count = $#$xvals_ref;
+	my @sign_chain;
 	my $col = 0;
 
-	#
-	# Size up the table, across by the number of Sturm chain polynomials,
-	# down by the number of x-vals.
-	#
-	my @sign_chains = ([0 x $#$chain_ref] x $#$xvals_ref);
+	push @sign_chain, [] for (0..$x_count);
 
 	foreach my $p_ref (@$chain_ref)
 	{
@@ -1164,7 +1174,7 @@ sub sturm_sign_chains($$)
 		#
 		# We just retrieved the signs of a single function across
 		# our x-vals. We want it the other way around; signs listed
-		# by x-val across function.
+		# by x-val across functions.
 		#
 		# (list of lists)
 		# |
@@ -1178,15 +1188,35 @@ sub sturm_sign_chains($$)
 		#
 		# ...
 		#
-		for my $j (0..$#ysigns)
+		for my $j (0..$x_count)
 		{
-			${sign_chains[$col]}[$j] = shift @ysigns;
+			push @{$sign_chain[$j]}, shift @ysigns;
 		}
 
 		$col++;
 	}
 
-	return @sign_chains;
+	return @sign_chain;
+}
+
+#
+# $sign_changes = sturm_sign_count(@signs);
+#
+# Count the number of changes from sign to sign in the array.
+#
+sub sturm_sign_count(@)
+{
+	my @sign_seq = @_;
+	my $scnt = 0;
+
+	my $s1 = shift @sign_seq;
+	for my $s2 (@sign_seq)
+	{
+		$scnt++ if ($s1 != $s2);
+		$s1 = $s2;
+	}
+
+	return $scnt;
 }
 
 
@@ -1364,6 +1394,38 @@ a four-element list. The first two elements will be either
 both real or both complex. The next two elements will also be alike in
 type.
 
+=head3 poly_sturm_chain()
+
+Returns the chain of Sturm functions used to evaluate the number of roots of a
+polynomial in a range of X values. See C<poly_real_root_count()> for an example.
+
+=head3 sturm_sign_minus_inf()
+=head3 sturm_sign_plus_inf()
+=head3 sturm_sign_chain()
+=head3 sturm_sign_count()
+
+Return an array of signs (or, an array of array of signs in the case of sturm_sign_chain()) for use
+by sturm_sign_count().
+
+See C<poly_real_root_count()> for an example of the use of sturm_sign_minus_inf() and sturm_sign_plus_inf().
+
+C<sturm_sign_chain()> may be used to determine the number of roots between a pair or more of X values.
+For example:
+
+  my @chain = poly_sturm_chain( @coef );
+  my @signs = sturm_sign_chain(\@chain, \@xvals);
+
+  print "Number of unique, real, roots between ", $xval[0], " and ", $xval[1],
+        " is ", sturm_sign_count(@{$signs[0]}) - sturm_sign_count(@{$signs[1]});
+
+Or, to find the number of positive, unique, real, roots:
+
+  my @xvals = (0);
+  my @signs = sturm_sign_chain(\@chain, \@xvals);
+
+  print "Number of positve, unique, real, roots is ",
+         sturm_sign_count(@{$signs[0]}) - sturm_sign_count(sturm_sign_plus_inf(\@chain));
+
 =head3 poly_real_root_count()
 
 Return the number of I<unique>, I<real> roots of the polynomial.
@@ -1371,7 +1433,17 @@ Return the number of I<unique>, I<real> roots of the polynomial.
   $unique_roots = poly_real_root_count(@coefficients);
 
 For example, the polynomial (x + 3)**3 forms the polynomial x**3 + 9x**2 + 27x + 27,
-but poly_real_root_count() will return 1 for that polynomial since all three roots are the same.
+but poly_real_root_count(1, 9, 27, 27) will return 1 for that polynomial since all
+three roots are the same.
+
+This function is the all-in-one function to use instead of
+
+  my @chain = poly_sturm_chain(@coefficients);
+
+  return sturm_sign_count(sturm_sign_minus_inf(\@chain)) -
+          sturm_sign_count(sturm_sign_plus_inf(\@chain));
+
+if you don't intend to use the Sturm chain for anything else.
 
 =head3 poly_derivative()
 
@@ -1455,14 +1527,14 @@ five: linear_roots(), quadratic_roots(), cubic_roots(), quartic_roots().
 =item numeric
 
 Exports the root-finding function and the functions that affect its behavior:
-poly_roots(), get_hessenberg() and set_hessenberg().
-set_substitution().
+poly_roots(), get_hessenberg() and set_hessenberg(). Note that get_hessenberg()
+and set_hessenberg will be deprecated in the next release.
 
 =item sturm
 
-Exports the functions that provide the Sturm functions: poly_sturm_chain()
-and poly_real_root_count(). Currently only poly_real_root_count() is useful to the
-typical end user.
+Exports the functions that provide the Sturm functions: poly_sturm_chain(),
+poly_real_root_count(), sturm_sign_count(), sturm_sign_minus_inf(),
+sturm_sign_plus_inf(), and sturm_sign_chain(). 
 
 =item utility
 
