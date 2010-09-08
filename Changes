@@ -1,17 +1,27 @@
 Revision history for Perl extension Math::Polynomial::Solve.
 
+2.54
+     Sep 7 2010
+	- Documentation updates. Time to release the module.
+     Sep 2 2010
+	- Added an %option variable. Currently its fields are hessenberg,
+	  varsubs, and roots; hessenberg (which has replaced
+	  $use_hessenberg) is in use, the other two might not even keep
+	  their names the same.
+	- Let epsilon() function change the calculated machine epsilon
+	  value. This is probably something you want to do rarely, if at all.
 2.53_3
      Aug 31 2010
 	- Added early return to poly_sturm_chain() when it's passed a
 	  constant or a linear equation (yeah, I know, but one still has to
 	  check).
 	- A couple more tests each for sturm0.t and sturm1.t.
-	- Finally use (and then fix) sturm_sign_chain().
+	- Finally used (and then fixed) sturm_sign_chain().
 	- Expose some more internal functions under the :sturm tag, and
 	  document them.
 2.53_2
      Aug 26 2010
-	- Added another (cubic) test to cubic.t and poly0.t.
+	- Added another cubic test to cubic.t and poly0.t.
      Aug 25 2010
 	- CPAN testers found a failing test in sturm0.t for some machines.
 	  Altered the test to make use of fltcmp(), which I hope will solve
@@ -45,7 +55,7 @@ Revision history for Perl extension Math::Polynomial::Solve.
 	  use for it.
      Jun 22 2010
 	- Added epsilon() to the export list and to the :utility tag. It
-	  existed in v2.52, I just forgot to add it, to the export list.
+	  existed in v2.52, I just forgot to add it.
 	- Formatting changes to the POD with respect to the functions'
 	  documentation.
 
