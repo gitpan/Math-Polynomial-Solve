@@ -18,6 +18,7 @@ t/pod.t
 t/poly0.t
 t/poly1.t
 t/polyfp0.t
+t/rootf.t
 t/sturm0.t
 t/sturm1.t
 t/quadratic.t

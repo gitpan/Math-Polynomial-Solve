@@ -1,10 +1,9 @@
 #
-# Tests of the poly_roots() function, all of polynomials of degree
-# four or less.
+# Tests of the poly_roots() function with both root_function on and off.
 #
-use Test::Simple tests => 24;
+use Test::Simple tests => 34;
 
-use Math::Polynomial::Solve qw(:numeric);
+use Math::Polynomial::Solve qw(:numeric poly_nonzero_term_count);
 use Math::Complex;
 use strict;
 use warnings;
@@ -12,25 +11,29 @@ use warnings;
 require "t/coef.pl";
 
 my @case = (
-	[2, 1],
-	[1, 2, 1],
-	[1, 3, 3, 1],
-	[729, -1, 1, 9],
-	[1, 4, 6, 4, 1],
-	[3, 6, -1, -4, 2],
-	[-3, -6, 1, 4, -2],
-	[1, 0, -30, 0, 289],
-	[-1, 0, 30, 0, -289],
-	[1, 0, -30, 0, 289,  0,  0,  0],
-	[289, 0, -30, 0, 1],
-	[1, 12, 46, 60, 25],
+	[1, 0, 1],
+	[1, 0, 0, 1],
+	[1, 0, 0, 0, 1],
+	[1, 0, 0, 0, 0, 1],
+	[1, 0, 0, 0, 0, 0, 1],
+	[1, 0, 0, 0, 0, 0, 0, 1],
+	[1, 0, -1],
+	[1, 0, 0, -1],
+	[1, 0, 0, 0, -1],
+	[1, 0, 0, 0, 0, -1],
+	[1, 0, 0, 0, 0, 0, -1],
+	[1, 0, 0, 0, 0, 0, 0, -1],
+	[2, 0, 1],
+	[9, 0, 0, 27],
+	[1, 0, 0, 0, 0, 5],
+	[1, 0, 1, 0, 1],	# shouldn't use root() ever.
+	[3, 0, -1, -4, 2],	# shouldn't use root() ever.
 );
 
 #
-# All of these tests will be dispatched to the
-# quadratic_roots, cubic_roots, and quartic_roots functions.
+# Use poly_roots() as per nomal...
 #
-poly_option(hessenberg => 0);
+poly_option(root_function => 0);
 
 foreach (@case)
 {
@@ -42,7 +45,7 @@ foreach (@case)
 	$c0 = -$c0 if ($n % 2 == 1);
 
 	ok((fltcmp($cn_1, $coef[1]) == 0 and fltcmp($c0, $coef[$n]) == 0),
-		"   [ " . join(", ", @coef) . " ]");
+		" root_function => 0,   [ " . join(", ", @coef) . " ]");
 
 	#print "\nmy \$cn_1 = $cn_1; \$coef[1] = ", $coef[1], "\n";
 	#print "\nmy \$c0 = $c0; \$coef[$n] = ", $coef[$n], "\n";
@@ -50,22 +53,23 @@ foreach (@case)
 }
 
 #
-# Repeate, except that the next line sets the
-# 'always use the iterative matrix' flag.
+# Repeat, using the root() function whenever possible.
 #
-poly_option(hessenberg => 1);
+poly_option(root_function => 1);
 
 foreach (@case)
 {
 	my @coef = @$_;
 	my $n = $#coef;
+	my $tc = poly_nonzero_term_count(@coef);
 	my @x = poly_roots(@coef);
 	my $cn_1 = -sumof(@x) * $coef[0];
 	my $c0 = prodof(@x) * $coef[0];
 	$c0 = -$c0 if ($n % 2 == 1);
 
+
 	ok((fltcmp($cn_1, $coef[1]) == 0 and fltcmp($c0, $coef[$n]) == 0),
-		"   [ " . join(", ", @coef) . " ]");
+		" root_function => 1, nz terms = $tc,   [ " . join(", ", @coef) . " ]");
 
 	#print "\nmy \$b = $b; \$coef[1] = ", $coef[1], "\n";
 	#print "\nmy \$e = $e; \$coef[$n] = ", $coef[$n], "\n";
@@ -73,3 +77,4 @@ foreach (@case)
 }
 
 1;
+

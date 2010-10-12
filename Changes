@@ -1,5 +1,25 @@
 Revision history for Perl extension Math::Polynomial::Solve.
 
+2.55_1
+     Oct 12 2010
+	- And one more document change: I found a call to set_hessenberg(0)
+	  where we now want poly_option(hessenberg => 0);
+     Oct 8 2010
+	- Added rootf.t to test directory and MANIFEST; it tests poly_roots()
+	  with the option "root_function" set.
+	- Changes to the poly_option() function for better
+	  option handling.
+	- Change test files poly0.t and polyfp0.t (which used
+	  set_hessenberg($value)) to now use
+	  poly_option(hessenberg => $value) instead.
+     Oct 5 2010
+	- Documentation change to EXPORT section. Instead of listing
+	  exported functions, link to the head3 Functions sections,
+	  which are now organized by tag (see Sep 28 2010).
+	- Added the poly_option() function.
+     Sep 28 2010
+	- Documentation improvement by categorizing the functions by
+	  tag and improving the Sturm sequence explanation.
 2.54
      Sep 7 2010
 	- Documentation updates. Time to release the module.
