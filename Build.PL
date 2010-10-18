@@ -10,11 +10,11 @@ my $build = Module::Build->new(
 
 	requires => {
 		perl=> '5.6.0',
-		'Math::Complex'=> '1.36',
+		'Math::Complex'=> '1.36',  # Bugfix of Im().
 	},
 	build_requires => { 'Test::Simple' => 0 },
 
-	include_dirs => [ '.' ],
+	keyword => [ qw(math polynomial sturm) ],
 	license => 'perl',
 	create_readme => 0,
 	create_makefile_pl => 'traditional',

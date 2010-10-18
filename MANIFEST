@@ -6,6 +6,7 @@ META.yml
 lib/Math/Polynomial/Solve.pm
 README
 eg/cubic.m
+eg/division.pl
 eg/poly.pl
 eg/sturm.pl
 reference/cubic1993.pdf

@@ -49,7 +49,7 @@ use warnings;
 @EXPORT_OK = ( @{ $EXPORT_TAGS{'classical'} }, @{ $EXPORT_TAGS{'numeric'} },
 	@{ $EXPORT_TAGS{'sturm'} }, @{ $EXPORT_TAGS{'utility'} } );
 
-our $VERSION = '2.55_1';
+our $VERSION = '2.55_2';
 
 #
 # Options to set or unset to force poly_roots() to use different
@@ -67,7 +67,7 @@ our $VERSION = '2.55_1';
 my %option = (
 	hessenberg => 1,
 	root_function => 0,
-	varsubs => 0,
+	varsubst => 0,
 );
 
 #
@@ -93,7 +93,7 @@ BEGIN
 # sign($x);
 #
 #
-sub sign($)
+sub sign
 {
 	my($x) = @_;
 	return 1 if ($x > 0);
@@ -159,7 +159,7 @@ sub poly_option
 # @x = linear_roots($a, $b)
 #
 #
-sub linear_roots(@)
+sub linear_roots
 {
 	my($a, $b) = @_;
 
@@ -176,7 +176,7 @@ sub linear_roots(@)
 # @x = quadratic_roots($a, $b, $c)
 #
 #
-sub quadratic_roots(@)
+sub quadratic_roots
 {
 	my($a, $b, $c) = @_;
 
@@ -201,7 +201,7 @@ sub quadratic_roots(@)
 # @x = cubic_roots($a, $b, $c, $d)
 #
 #
-sub cubic_roots(@)
+sub cubic_roots
 {
 	my($a, $b, $c, $d) = @_;
 	my @x;
@@ -287,7 +287,7 @@ sub cubic_roots(@)
 # @x = quartic_roots($a, $b, $c, $d, $e)
 #
 #
-sub quartic_roots(@)
+sub quartic_roots
 {
 	my($a,$b,$c,$d,$e) = @_;
 	my @x = ();
@@ -415,7 +415,7 @@ sub BASESQR () { BASE * BASE }
 # Build the Companion Matrix of the N degree polynomial.  Return a
 # reference to the N by N matrix.
 #
-sub build_companion(@)
+sub build_companion
 {
 	my @coefficients = @_;
 	my $n = $#coefficients;
@@ -583,7 +583,7 @@ sub build_companion(@)
 # H, stored in the array $h(1:n,1:n).  Returns a list
 # of real and/or complex numbers.
 #
-sub hqr_eigen_hessenberg($)
+sub hqr_eigen_hessenberg
 {
 	my $ref = shift;
 	my @h   = @$ref;
@@ -820,10 +820,11 @@ sub hqr_eigen_hessenberg($)
 # Coefficients are fed in highest degree first.  Equation 5x**5 + 4x**4 + 2x + 8
 # would be fed in with @x = poly_roots(5, 4, 0, 0, 2, 8);
 #
-sub poly_roots(@)
+sub poly_roots
 {
 	my(@coefficients) = @_;
 	my(@x, @zero_x);
+	my $subst_degree = 1;
 
 	#
 	#### @coefficients
@@ -851,23 +852,33 @@ sub poly_roots(@)
 	# If the polynomial is of the form ax**n + c, and the option{root_function}
 	# is set, use the Math::Complex::root() function to return the roots.
 	#
+	### %option
+	#
 	if ($option{root_function} and poly_nonzero_term_count(@coefficients) == 2)
 	{
-		return root(-$coefficients[$#coefficients]/$coefficients[0], $#coefficients), @zero_x;
+		return  @zero_x, root(-$coefficients[$#coefficients]/$coefficients[0], $#coefficients);
 	}
 
 	#
 	# Next do some minor analysis of the remaining coefficients.
-	# Whether we use this or not depends upon some internal flags.
+	# See if we can reduce the size of the polynomial further by
+	# doing some variable substitution.
 	#
-	# my %coef_reduc = poly_analysis(@coefficients);
+	if ($option{varsubst})
+	{
+		my $cf;
+		($cf, $subst_degree) = poly_analysis(@coefficients);
+		@coefficients = @$cf if ($subst_degree > 1);
+	}
+
 
 	#
 	# If the remaining polynomial is a quintic or higher, or
 	# if $option{hessenberg} is set, continue with the matrix
 	# calculation.
 	#
-	### %option
+	#### @coefficients
+	#### $m
 	#
 	if ($option{hessenberg} or $#coefficients > 4)
 	{
@@ -898,8 +909,9 @@ sub poly_roots(@)
 		push @x, linear_roots(@coefficients);
 	}
 
-	unshift @x, @zero_x;
-	return @x;
+	@x = map(root($_, $subst_degree), @x) if ($subst_degree > 1);
+
+	return  @zero_x, @x;
 }
 
 #
@@ -907,45 +919,63 @@ sub poly_roots(@)
 #
 # STILL EXPERIMENTAL.
 #
-#
 # @x = map(root($_, 2), @x) if ($czop);
 #
-sub poly_analysis(@)
+sub poly_analysis
 {
 	my(@coefficients) = @_;
-	my($czp2, $czp3, $czp5) = (1, 1, 1);		# Coefficients zero at odd powers? (1==T,0==F).
+	my(@primeset)= (2, 3, 5);
+	my(@czp) = (1) x scalar @primeset;
+	my $m = 1;
+
+	#
+	# Is the count of coefficients a multiple of any primes?
+	#
+	for my $k (0..$#primeset)
+	{
+		$czp[$k] = 0 if (($#coefficients % $primeset[$k]) != 0);
+	}
+
+	#
+	# Coefficients zero at the non-N degrees? (1==T,0==F).
+	#
 	for my $j (0..$#coefficients)
 	{
 		if (abs($coefficients[$j]) > $epsilon)
 		{
-			$czp2 = 0 if ($j & 1);
+			for my $k (0..$#primeset)
+			{
+				$czp[$k] = 0 if (($j % $primeset[$k]) != 0);
+			}
 		}
 	}
 
-	if ($czp2 == 1)
+	for my $k (0..$#primeset)
 	{
-		my @even_coefs;
-		push @even_coefs, $coefficients[$_*2] for (0..$#coefficients/2);
-		@coefficients = @even_coefs;
+		$m *= $primeset[$k] if ($czp[$k] == 1);
 	}
+
+	if ($m > 1)
+	{
+		my @alt_coefs;
+		push @alt_coefs, $coefficients[$_*$m] for (0..$#coefficients/$m);
+		my($cf, $m1) = poly_analysis(@alt_coefs);
+		@coefficients = @$cf;
+		$m *= $m1;
+	}
+
+	return \@coefficients, $m;
 }
 
 #
 # $nzterms = poly_nonzero_term_count(@coeffients);
 #
-# Count the number of non-zero terms. Simple enuogh, yes?
+# Count the number of non-zero terms. Simple enough, yes?
 #
-sub poly_nonzero_term_count(@)
+sub poly_nonzero_term_count
 {
 	my(@coefficients) = @_;
 	my $nzc = 0;
-
-	#
-	# Check for zero coefficients in the higher-powered terms.  They
-	# don't count towards the total.
-	#
-	shift @coefficients while (scalar @coefficients and abs($coefficients[0]) < $epsilon);
-	return 0 unless (scalar @coefficients);
 
 	for my $j (0..$#coefficients)
 	{
@@ -961,7 +991,7 @@ sub poly_nonzero_term_count(@)
 # a monic polynomial form (all coefficients divided by the coefficient
 # of the highest power).
 #
-sub simplified_form(@)
+sub simplified_form
 {
 	my @coefficients = @_;
 
@@ -985,7 +1015,7 @@ sub simplified_form(@)
 # Returns the derivative of a polynomial. The constant value is
 # lost of course.
 #
-sub poly_derivative(@)
+sub poly_derivative
 {
 	my @coefficients = @_;
 	my $degree = $#coefficients;
@@ -1004,7 +1034,7 @@ sub poly_derivative(@)
 # Returns the antiderivative of a polynomial. The constant value is
 # always set to zero; to override this $integral[$#integral] = $const;
 #
-sub poly_antiderivative(@)
+sub poly_antiderivative
 {
 	my @coefficients = @_;
 	my $degree = scalar @coefficients;
@@ -1023,7 +1053,7 @@ sub poly_antiderivative(@)
 # Returns a list of y-points on the polynomial for a corresponding
 # list of x-points, using Horner's method.
 #
-sub poly_evaluate($$)
+sub poly_evaluate
 {
 	my $coef_ref = shift;
 	my $xval_ref = shift;
@@ -1053,7 +1083,7 @@ sub poly_evaluate($$)
 # Synthetic division for polynomials. Returns references to the quotient
 # and the remainder.
 #
-sub poly_divide($$)
+sub poly_divide
 {
 	my $n_ref = shift;
 	my $d_ref = shift;
@@ -1115,7 +1145,7 @@ sub poly_divide($$)
 #
 # @new_coeffients = poly_constmult(\@coefficients, $multiplier);
 #
-sub poly_constmult($$)
+sub poly_constmult
 {
 	my($c_ref, $multiplier) = @_;
 	my @coefficients = @$c_ref;
@@ -1127,7 +1157,7 @@ sub poly_constmult($$)
 # @sturm_seq = poly_sturm_chain(@coefficients)
 #
 #
-sub poly_sturm_chain(@)
+sub poly_sturm_chain
 {
 	my @coefficients = @_;
 	my $degree = $#coefficients;
@@ -1168,7 +1198,7 @@ sub poly_sturm_chain(@)
 # a polynomial. Use this if you don't intend to do anything else
 # requiring the Sturm chain.
 #
-sub poly_real_root_count(@)
+sub poly_real_root_count
 {
 	my(@coefficients) = @_;
 
@@ -1183,7 +1213,7 @@ sub poly_real_root_count(@)
 #
 # Return an array of signs from the chain at minus infinity.
 #
-sub sturm_sign_minus_inf($)
+sub sturm_sign_minus_inf
 {
 	my($chain_ref) = @_;
 	my @signs;
@@ -1202,7 +1232,7 @@ sub sturm_sign_minus_inf($)
 #
 # Return an array of signs from the chain at infinity.
 #
-sub sturm_sign_plus_inf($)
+sub sturm_sign_plus_inf
 {
 	my($chain_ref) = @_;
 	my @signs;
@@ -1222,7 +1252,7 @@ sub sturm_sign_plus_inf($)
 # Return an array of signs for each x-value passed in each function in
 # the Sturm chain.
 #
-sub sturm_sign_chain($$)
+sub sturm_sign_chain
 {
 	my($chain_ref, $xvals_ref) = @_;
 	my $fn_count = $#$chain_ref;
@@ -1269,7 +1299,7 @@ sub sturm_sign_chain($$)
 #
 # Count the number of changes from sign to sign in the array.
 #
-sub sturm_sign_count(@)
+sub sturm_sign_count
 {
 	my @sign_seq = @_;
 	my $scnt = 0;
@@ -1314,7 +1344,7 @@ or
   # method if the polynomial degree is less than five.
   #
   poly_option(hessenberg => 0);
-  my @x = poly_roots(@coefficients);
+  @x = poly_roots(@coefficients);
 
 or
 
@@ -1361,49 +1391,18 @@ or
 =head1 DESCRIPTION
 
 This package supplies a set of functions that find the roots of
-polynomials, along with some utility functions. Polynomials up to the quartic
-may be solved directly by numerical formulae. Polynomials of fifth and higher
-powers will be solved by an iterative method, as there are no general solutions
-for fifth and higher powers.
-
-If the constant term is zero then the first value returned in the list
-of answers will always be zero, for all functions.
-
-The leading coefficient C<$a> must always be non-zero for the classical
-functions C<linear_roots()>, C<quadratic_roots()>, C<cubic_roots()>, and
-C<quartic_roots()>.
+polynomials, along with some utility functions.
 
 Functions making use of the Sturm sequence are also available, letting you
 find the number of real roots present in a range of X values.
 
 In addition to the root-finding functions, the internal functions have
-also been exported for your use. See the L</"EXPORT"> section for a list of
-functions exported via the :utiltiy tag.
+also been exported for your use.
 
 =head2 Numeric Functions
 
 These are the functions that calculate the polynomial's roots through numeric
 algorithms. They are all exported under the tag "numeric".
-
-=head3 get_hessenberg()
-
-Returns 1 or 0 depending upon whether C<poly_roots()> always makes use of
-the Hessenberg matrix method or not.
-
-B<NOTE>: this function will be deprecated in future releases in
-favor of the option function C<poly_option()>.
-
-=head3 set_hessenberg()
-
-Sets or removes the condition that forces the use of the Hessenberg matrix
-regardless of the polynomial's degree.  A zero argument forces the
-use of classical methods for polynomials of degree less than five, a
-non-zero argument forces C<poly_roots()> to always use the matrix method.
-The default state of the module is to always use the matrix method.
-This is a complete change from the default behavior in versions less than v2.50.
-
-B<NOTE>: this function will be deprecated in future releases in
-favor of the option function C<poly_option()>.
 
 =head3 poly_option()
 
@@ -1411,10 +1410,12 @@ Set options that affect the behavior of the C<poly_roots()> function.
 This is the option function that deprecates C<set_hessenberg()> and
 C<get_hessenberg()>.
 
+Options may be set and saved:
+
     #
-    # Set an option...
+    # Set a few options...
     #
-    poly_option(hessenberg => 1);
+    poly_option(hessenberg => 0, root_function => 1);
 
     #
     # Get all of the current options and their values.
@@ -1427,6 +1428,25 @@ C<get_hessenberg()>.
     #
     my %changed_options = poly_option(hessenberg => 1);
 
+The current options available are:
+
+=over 4
+
+=item hessenberg
+
+Use the QR Hessenberg matrix method to solve the polynomial. By default, this
+is set to 1. If set to 0, C<poly_roots()> uses one of the classical
+root-finding functions listed below if the degree of the polynomial is four or
+less.
+
+=item root_function
+
+If the function is of the form C<ax**n + c>, poly_roots() will make use of the
+l<root()|Math::Complex/operations> function from Math::Complex. This takes
+precedence over the other solving methods.
+
+=back
+
 =head3 poly_roots()
 
 Returns the roots of a polynomial equation, regardless of degree.
@@ -1437,17 +1457,34 @@ coefficients of zero for the lowest power terms, and add zeros to its
 root list before calling one of the root-finding functions.
 
 By default, C<poly_roots()> will use the Hessenberg matrix method for solving
-polynomials.
+polynomials. This can be changed by calling L</poly_options()>.
 
-If the function C<set_hessenberg()> is called with an argument of 0,
-C<poly_roots()> attempts to use one of the classical root-finding functions
-listed below, if the degree of the polynomial is four or less.
+=head3 get_hessenberg() I<DEPRECATED>
+
+Returns 1 or 0 depending upon whether C<poly_roots()> always makes use of
+the Hessenberg matrix method or not.
+
+B<NOTE>: this function is replaced by the option function C<poly_option()>.
+
+=head3 set_hessenberg() I<DEPRECATED>
+
+Sets or removes the condition that forces the use of the Hessenberg matrix
+regardless of the polynomial's degree.  A zero argument forces the
+use of classical methods for polynomials of degree less than five, a
+non-zero argument forces C<poly_roots()> to always use the matrix method.
+The default state of the module is to always use the matrix method.
+This is a complete change from the default behavior in versions less than v2.50.
+
+B<NOTE>: this function is replaced by the option function C<poly_option()>.
 
 =head2 Classical Functions
 
 These are the functions that solve polynomials via the classical methods.
 Quartic, cubic, quadratic, and even linear equations may be solved with
 these functions. They are all exported under the tag "classical".
+
+The leading coefficient C<$a> must always be non-zero for the classical
+functions.
 
 =head3 linear_roots()
 
@@ -1472,7 +1509,7 @@ Gives the roots of the cubic equation
 
     ax**3 + bx**2 + cx + d = 0
 
-by the method described by R. W. D. Nickalls (see the L</"Acknowledgments">
+by the method described by R. W. D. Nickalls (see the L</"ACKNOWLEDGMENTS">
 section below). Returns a three-element list. The first element will
 always be real. The next two values will either be both real or both
 complex numbers.
@@ -1483,7 +1520,7 @@ Gives the roots of the quartic equation
 
     ax**4 + bx**3 + cx**2 + dx + e = 0
 
-using Ferrari's method (see the L</"Acknowledgments"> section below). Returns
+using Ferrari's method (see the L</"ACKNOWLEDGMENTS"> section below). Returns
 a four-element list. The first two elements will be either
 both real or both complex. The next two elements will also be alike in
 type.
@@ -1554,8 +1591,8 @@ Or, to find the number of positive, unique, real, roots:
 
 =head2 Utility Functions
 
-These are mostly internal functions used by the other functions listed above, but which may
-also be useful to the user. They are all exported under the tag "utility".
+These are internal functions used by the other functions listed above,
+but which may also be useful to the user. They are all exported under the tag "utility".
 
 =head3 poly_derivative()
 
@@ -1642,7 +1679,7 @@ L<numeric|"Numeric Functions">,
 L<sturm|"Sturm Functions">, and
 L<utility|"Utility Functions">.
 
-=head1 Acknowledgments
+=head1 ACKNOWLEDGMENTS
 
 =head2 The cubic
 

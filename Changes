@@ -1,5 +1,19 @@
 Revision history for Perl extension Math::Polynomial::Solve.
 
+2.55_2
+     Oct 18 2010
+	- Got the variable substitution code in, and created test file
+	  varsubst.t. Undocumented for now.
+     Oct 15 2010
+	- More documentation improvments, as I clear away old
+	  numeric vs. classical confusion, and add documentation
+	  for poly_option().
+	- Read the latest Module::Build documentation, and decided
+	  to try the keyword item in Build.PL.
+     Oct 12 2010
+	- Added division.pl to the eg directory and to the MANIFEST.
+	- Was removing leading zeros in poly_nonzero_term_count(),
+	  which is pretty pointless. Removed those lines of code.
 2.55_1
      Oct 12 2010
 	- And one more document change: I found a call to set_hessenberg(0)
