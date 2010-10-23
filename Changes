@@ -1,5 +1,26 @@
 Revision history for Perl extension Math::Polynomial::Solve.
 
+2.55_3
+     Oct 22 2010
+	- The Sturm functions sturm_sign_minus_inf() and sturm_sign_minus_inf()
+	  had been documented as exported, but they weren't. They are now.
+	- Documentation for the Sturm functions was cut short - either I had
+	  accidentally chopped it, or I left off writing it and forgot to get
+	  back to it. Took a stab at completing it.
+	- Added function sturm_real_root_range_count().
+	- Added test file sturm2.t to the t directory, and to the MANIFEST.
+     Oct 19 2010
+	- The keyword metadata key isn't an argument to the Module::Build
+	  constructor, it's part of the meta_merge hash which *is* an
+	  argument to the constructor. Fixed that.
+	- Document the varsubst option in poly_option().
+	- Made the variable substitution method more efficient by
+	  actually removing primes from the list as they're checked.
+	  Extended the prime list that gets checked.
+     Oct 18 2010
+	- Aaaaaaand of course I forgot to put varsubst.t in the MANIFEST.
+	- Updated Module::Build on my system. Maybe get keywords in
+	  META.yml now?
 2.55_2
      Oct 18 2010
 	- Got the variable substitution code in, and created test file

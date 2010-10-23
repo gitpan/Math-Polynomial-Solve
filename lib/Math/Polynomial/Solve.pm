@@ -31,8 +31,11 @@ use warnings;
 	'sturm' => [ qw(
 		poly_real_root_count
 		poly_sturm_chain
-		sturm_sign_chain
+		sturm_real_root_range_count
 		sturm_sign_count
+		sturm_sign_chain
+		sturm_sign_minus_inf
+		sturm_sign_plus_inf
 	) ],
 	'utility' => [ qw(
 		epsilon
@@ -49,7 +52,7 @@ use warnings;
 @EXPORT_OK = ( @{ $EXPORT_TAGS{'classical'} }, @{ $EXPORT_TAGS{'numeric'} },
 	@{ $EXPORT_TAGS{'sturm'} }, @{ $EXPORT_TAGS{'utility'} } );
 
-our $VERSION = '2.55_2';
+our $VERSION = '2.55_3';
 
 #
 # Options to set or unset to force poly_roots() to use different
@@ -60,9 +63,12 @@ our $VERSION = '2.55_2';
 # to force poly_roots() uses one of the specialized routines (linerar_roots(),
 # quadratic_roots(), etc) if the degree of the polynomial is less than five.
 #
-# roots_function (default 0): set to 1 to force poly_roots() to use
+# root_function (default 0): set to 1 to force poly_roots() to use
 # Math::Complex's root(-c/a, n) function if the polynomial is of the form
 # ax**n + c.
+#
+# varsubst (default 0): try to reduce the degree of the polynomial through
+# variable substitution before solving.
 #
 my %option = (
 	hessenberg => 1,
@@ -149,6 +155,10 @@ sub poly_option
 		{
 			$old_opts{$okey} = $option{$okey};
 			$option{$okey} = ($opts{$okey})? 1: 0;
+		}
+		else
+		{
+			carp "poly_option(): unknown key $okey.";
 		}
 	}
 
@@ -381,7 +391,7 @@ sub quartic_roots
 		my $z;
 		($z, undef, undef) = cubic_roots(1, 2*$f, $f*$f - 4*$h, -$g*$g);
 
-		### $z
+		#### $z
 
 		my $alpha = sqrt($z);
 		my $rho = $g/$alpha;
@@ -422,7 +432,7 @@ sub build_companion
 	my @h;			# The matrix.
 
 	#
-	#### build_companion called with: @coefficients
+	### build_companion called with: @coefficients
 	#
 	# First step:  Divide by the leading coefficient.
 	#
@@ -677,7 +687,7 @@ sub hqr_eigen_hessenberg
 				#
 				# Form exceptional shift.
 				#
-				#### Exceptional shift at: $its
+				### Exceptional shift at: $its
 				#
 
 				$t += $x;
@@ -849,19 +859,20 @@ sub poly_roots
 	}
 
 	#
-	# If the polynomial is of the form ax**n + c, and the option{root_function}
+	# If the polynomial is of the form ax**n + c, and $option{root_function}
 	# is set, use the Math::Complex::root() function to return the roots.
 	#
 	### %option
 	#
 	if ($option{root_function} and poly_nonzero_term_count(@coefficients) == 2)
 	{
-		return  @zero_x, root(-$coefficients[$#coefficients]/$coefficients[0], $#coefficients);
+		return  @zero_x,
+			root(-$coefficients[$#coefficients]/$coefficients[0], $#coefficients);
 	}
 
 	#
-	# Next do some minor analysis of the remaining coefficients.
-	# See if we can reduce the size of the polynomial further by
+	# Next do some analysis of the coefficients.
+	# See if we can reduce the size of the polynomial by
 	# doing some variable substitution.
 	#
 	if ($option{varsubst})
@@ -871,14 +882,13 @@ sub poly_roots
 		@coefficients = @$cf if ($subst_degree > 1);
 	}
 
-
 	#
 	# If the remaining polynomial is a quintic or higher, or
 	# if $option{hessenberg} is set, continue with the matrix
 	# calculation.
 	#
 	#### @coefficients
-	#### $m
+	#### $subst_degree
 	#
 	if ($option{hessenberg} or $#coefficients > 4)
 	{
@@ -915,46 +925,69 @@ sub poly_roots
 }
 
 #
-# Nothing to see here, move along.
+# ($new_coefficients_ref, $varsubst) = poly_analysis(@coefficients);
 #
-# STILL EXPERIMENTAL.
+# If the polynomial has evenly spaced gaps of zero coefficients, reduce
+# the polynomial through variable substitution.
 #
-# @x = map(root($_, 2), @x) if ($czop);
+# For example, a degree-6 polynomial like 9x**6 + 128x**3 + 7
+# can be reduced to a polynomial 9y**2 + 128y + 7, where y = x**3.
+#
+# After solving a quadratic instead of a sextic, the actual roots of
+# the original equation are found by taking the cube roots of each
+# root of the quadratic.
 #
 sub poly_analysis
 {
 	my(@coefficients) = @_;
-	my(@primeset)= (2, 3, 5);
-	my(@czp) = (1) x scalar @primeset;
+	my @czp;
 	my $m = 1;
 
 	#
-	# Is the count of coefficients a multiple of any primes?
+	# Is the count of coefficients a multiple of any of the primes?
 	#
-	for my $k (0..$#primeset)
-	{
-		$czp[$k] = 0 if (($#coefficients % $primeset[$k]) != 0);
-	}
+	# Realistically I don't expect any gaps that can't be handled by
+	# the first three prime numbers, but it's not much of a waste of
+	# space to go up to 31.
+	#
+	#for my $p (@primeset)
+	#{
+	#push @czp, $p if (($#coefficients % $p) == 0);
+	#}
+	@czp = grep(($#coefficients % $_) == 0,
+		(2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31)
+	);
 
 	#
-	# Coefficients zero at the non-N degrees? (1==T,0==F).
+	# Any coefficients zero at the non-N degrees? (1==T,0==F).
 	#
-	for my $j (0..$#coefficients)
+	#### @czp
+	#
+	if (@czp)
 	{
-		if (abs($coefficients[$j]) > $epsilon)
+		for my $j (0..$#coefficients)
 		{
-			for my $k (0..$#primeset)
+			if (abs($coefficients[$j]) > $epsilon)
 			{
-				$czp[$k] = 0 if (($j % $primeset[$k]) != 0);
+				@czp = grep(($j % $_) == 0, @czp);
 			}
 		}
+
+		#
+		# The remaining list of primes represent the gap size
+		# between non-zero coefficients.
+		#
+		map(($m *= $_), @czp);
+
+		### Substitution degree: $m
 	}
 
-	for my $k (0..$#primeset)
-	{
-		$m *= $primeset[$k] if ($czp[$k] == 1);
-	}
-
+	#
+	# If there's a sequence of zero-filled gaps in the coefficients,
+	# reduce the polynomial by degree $m and check again for the
+	# next round of factors (e.g., X**8 + X**4 + 1 needs two rounds
+	# to get to a factor of 4).
+	#
 	if ($m > 1)
 	{
 		my @alt_coefs;
@@ -1055,8 +1088,7 @@ sub poly_antiderivative
 #
 sub poly_evaluate
 {
-	my $coef_ref = shift;
-	my $xval_ref = shift;
+	my($coef_ref, $xval_ref) = @_;
 
 	my @coefficients = @$coef_ref;
 	my @values = @$xval_ref;
@@ -1185,8 +1217,8 @@ sub poly_sturm_chain
 	while ($#$r > 0);
 
 	#
-	## poly_sturm_chain:
-	### @chain
+	#### poly_sturm_chain:
+	#### @chain
 	#
 	return @chain;
 }
@@ -1206,6 +1238,22 @@ sub poly_real_root_count
 
 	return sturm_sign_count(sturm_sign_minus_inf(\@chain)) -
 		sturm_sign_count(sturm_sign_plus_inf(\@chain));
+}
+
+#
+# $root_count = sturm_real_root_range_count(\@chain, $x0, $x1);
+#
+# An all-in-one function for finding the number of real roots in
+# a polynomial. Use this if you don't intend to do anything else
+# requiring the Sturm chain.
+#
+sub sturm_real_root_range_count
+{
+	my($chain_ref, $x0, $x1) = @_;
+
+	my @signs = sturm_sign_chain($chain_ref, [$x0, $x1]);
+
+	return sturm_sign_count(@{$signs[0]}) - sturm_sign_count(@{$signs[1]});
 }
 
 #
@@ -1426,7 +1474,7 @@ Options may be set and saved:
     # Set some options but save the former option values
     # for later.
     #
-    my %changed_options = poly_option(hessenberg => 1);
+    my %changed_options = poly_option(hessenberg => 1, varsubst => 1);
 
 The current options available are:
 
@@ -1441,9 +1489,27 @@ less.
 
 =item root_function
 
-If the function is of the form C<ax**n + c>, poly_roots() will make use of the
+If the polynomial is of the form C<ax**n + c>, poly_roots() will make use of the
 l<root()|Math::Complex/operations> function from Math::Complex. This takes
 precedence over the other solving methods.
+
+=item varsubst
+
+Reduce polynomials to a lower degree through variable substitution, if possible.
+
+For example, with varsubst on and the polynomial to solve is C<9x**6 + 128x**3 + 21>,
+then poly_roots() will reduce the polynomial to C<9y**2 + 128y + 21>, where y = x**3,
+and solve the quadratic (either classically or numerically, depending
+on the hessenberg option). Taking the cube root of each quadratic root
+completes the operation.
+
+This has the benefit of having a simpler matrix to solve, or if the hessenberg option
+is set to zero, has the effect of being able to use one of the classical methods on a
+polynomial of high degree. In the above example, the order-six polynomial gets solved
+with the quadratic_roots() function if the hessenberg option is zero.
+
+Currently the variable substitution is fairly simple and will only look
+for gaps of zeros in the coefficients that are multiples of 2, 3, 5, and 7.
 
 =back
 
@@ -1552,7 +1618,27 @@ if you don't intend to use the Sturm chain for anything else.
 =head3 poly_sturm_chain()
 
 Returns the chain of Sturm functions used to evaluate the number of roots of a
-polynomial in a range of X values. See C<poly_real_root_count()> for an example.
+polynomial in a range of X values.
+
+If you feed in a sequence of X values to the Sturm functions, you can tell where
+the (real, not complex) roots of the polynomial are by counting the number of
+times the Y values change sign.
+
+See L</poly_real_root_count()> above for an example of its use.
+
+=head3 sturm_real_root_range_count()
+
+Return the number of I<unique>, I<real> roots of the polynomial.
+
+    my($x0, $x1) = (0, 1000);
+
+    my @chain = poly_sturm_chain(@coefficients);
+    $unique_roots = sturm_real_root_range_count(\@chain, $x0, $x1);
+
+Internally, this is equivalent to:
+
+    my @signs = sturm_sign_chain(\@chain, [$x0, $x1]);
+    return sturm_sign_count(@{$signs[0]}) - sturm_sign_count(@{$signs[1]});
 
 =head3 sturm_sign_minus_inf()
 
@@ -1560,34 +1646,22 @@ polynomial in a range of X values. See C<poly_real_root_count()> for an example.
 
 =head3 sturm_sign_chain()
 
+The functions that return the array of signs that are used by the functions
+L</poly_real_root_count()> and L</sturm_real_root_range_count()> to find
+the number of real roots in a polynomial. C<sturm_sign_minus_inf()>
+and C<sturm_sign_plus_inf()> return a single array for the values at minus
+infinity and plus infinity (for open-ended ranges, e.g., "all roots less than zero").
+C<sturm_sign_chain()> returns an array of arrays of signs, one for each X value
+passed into the function.
+
 =head3 sturm_sign_count()
 
-Return an array of signs (or, an array of array of signs in the case of
-C<sturm_sign_chain()>) for use by C<sturm_sign_count()>. The change of
-signs for each 
+Counts and returns the number of sign changes in a sequence of signs,
+such as those returned by L</sturm_sign_minus_inf()>, L</sturm_sign_plus_inf()>,
+and L</sturm_sign_chain()>
 
-See C<poly_real_root_count()> for an example of the use of
-C<sturm_sign_minus_inf()> and C<sturm_sign_plus_inf()>.
-
-C<sturm_sign_chain()> may be used to determine the number of roots between a
-pair or more of X values.
-
-For example:
-
-    my @xvals = (-2048, 2048);
-    my @chain = poly_sturm_chain( @coef );
-    my @signs = sturm_sign_chain(\@chain, \@xvals);
-
-    print "Number of unique, real, roots between ", $xval[0], " and ", $xval[1],
-          " is ", sturm_sign_count(@{$signs[0]}) - sturm_sign_count(@{$signs[1]});
-
-Or, to find the number of positive, unique, real, roots:
-
-    my @xvals = (0);
-    my @signs = sturm_sign_chain(\@chain, \@xvals);
-
-    print "Number of positve, unique, real, roots is ",
-          sturm_sign_count(@{$signs[0]}) - sturm_sign_count(sturm_sign_plus_inf(\@chain));
+See L</poly_real_root_count()> and L</sturm_real_root_range_count()> for examples
+of its use.
 
 =head2 Utility Functions
 

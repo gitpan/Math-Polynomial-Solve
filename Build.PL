@@ -14,10 +14,12 @@ my $build = Module::Build->new(
 	},
 	build_requires => { 'Test::Simple' => 0 },
 
-	keyword => [ qw(math polynomial sturm) ],
 	license => 'perl',
 	create_readme => 0,
 	create_makefile_pl => 'traditional',
+	meta_merge => {
+		keyword => [ qw(math polynomial sturm) ],
+	},
 );
 
 $build->create_build_script;
