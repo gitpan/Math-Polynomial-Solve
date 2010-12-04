@@ -1,5 +1,29 @@
 Revision history for Perl extension Math::Polynomial::Solve.
 
+2.55_4
+     Dec 3 2010
+	- Function laguerre() now works with a better tolerance value.
+	- Added a %tolerance hash for the iterative functions. Currently
+	  only laguerre() makes use of it, and I may change the way of
+	  handling later.
+	- Fixed poly_iteration() - iteration limits weren't getting
+	  changed.
+	- Checking the t directory, I found four or so test files that
+	  weren't in the MANIFEST file. Fixed that.
+     Nov 30 2010
+	- New version of laguerre() now takes multiple x-values.
+	- Documented the changes in poly_evaluate().
+     Nov 18 2010
+	- Function poly_evaluate() can now detect whether it is being passed
+	  an array of x-values, or a single x-value. Return checks to see if
+	  an array of y-values is wanted, or a single value.
+     Nov 17 2010
+	- Add function poly_iteration() to make iteration limits adjustable.
+	- Add function laguerre() for use by sturm_bisection_roots().
+     Nov 7 2010
+	- Add function sturm_bisection_roots(). Not complete yet.
+	- De-Fortran'd some loops in hqr_eigen_hessenberg(). Now uses
+	  the range operator, '..'.
 2.55_3
      Oct 22 2010
 	- The Sturm functions sturm_sign_minus_inf() and sturm_sign_minus_inf()

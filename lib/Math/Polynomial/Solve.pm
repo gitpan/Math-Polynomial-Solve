@@ -32,6 +32,7 @@ use warnings;
 		poly_real_root_count
 		poly_sturm_chain
 		sturm_real_root_range_count
+		sturm_bisection_roots
 		sturm_sign_count
 		sturm_sign_chain
 		sturm_sign_minus_inf
@@ -39,6 +40,8 @@ use warnings;
 	) ],
 	'utility' => [ qw(
 		epsilon
+		poly_iteration
+		laguerre
 		poly_antiderivative
 		poly_derivative
 		poly_constmult
@@ -52,7 +55,7 @@ use warnings;
 @EXPORT_OK = ( @{ $EXPORT_TAGS{'classical'} }, @{ $EXPORT_TAGS{'numeric'} },
 	@{ $EXPORT_TAGS{'sturm'} }, @{ $EXPORT_TAGS{'utility'} } );
 
-our $VERSION = '2.55_3';
+our $VERSION = '2.55_4';
 
 #
 # Options to set or unset to force poly_roots() to use different
@@ -77,6 +80,25 @@ my %option = (
 );
 
 #
+# Iteration limits. The Hessenberg matrix method and the Laguerre method run
+# continuously until they converge upon an answer. The iteration limits are
+# there to prevent the loops from running forever if they fail to converge.
+#
+my %iteration = (
+	hessenberg => 60,
+	laguerre => 60,
+	sturm_bisection => 100,
+);
+
+#
+# Values here are placeholders only. The actual values will get
+# set in the BEGIN block.
+#
+my %tolerance = (
+	laguerre => 1e-14,
+);
+
+#
 # Set up the epsilon variable, the value that is, in the floating-point
 # math of the computer, the smallest value a variable can have before
 # it is indistinguishable from zero when adding it to one.
@@ -93,6 +115,8 @@ BEGIN
 		$epsilon = $epsilon2;
 		$epsilon2 /= 2.0;
 	}
+
+	$tolerance{laguerre} = 2 * $epsilon;
 }
 
 #
@@ -146,7 +170,7 @@ sub poly_option
 
 	return %option if (scalar @_ == 0);
 
-	for my $okey (keys %opts)
+	foreach my $okey (keys %opts)
 	{
 		#
 		# If this is a real option, save its old value, then set it.
@@ -163,6 +187,39 @@ sub poly_option
 	}
 
 	return %old_opts;
+}
+
+#
+# poly_iteration(opt1 => n, opt2 => n, ...);
+#
+sub poly_iteration
+{
+	my %limits = @_;
+	my %old_limits;
+
+	return %iteration if (scalar @_ == 0);
+
+	foreach my $k (keys %limits)
+	{
+		#
+		# If this is a real iteration limit, save its old value, then set it.
+		#
+		if (exists $iteration{$k})
+		{
+			my $val = abs(int($limits{$k}));
+			
+			carp "poly_iteration(): Unreasonably small value for $k => $val\n" if ($val < 10);
+
+			$old_limits{$k} = $iteration{$k};
+			$iteration{$k} = $val;
+		}
+		else
+		{
+			croak "poly_iteration(): unknown key $k.";
+		}
+	}
+
+	return %old_limits;
 }
 
 #
@@ -415,7 +472,6 @@ sub quartic_roots
 #       It is 16 for base 16 float : for example, IBM system 360/370.
 #       It is 2  for base  2 float : for example, IEEE float.
 
-my $MAX_ITERATIONS = 60;
 sub BASE ()    { 2 }
 sub BASESQR () { BASE * BASE }
 
@@ -479,7 +535,8 @@ sub build_companion
 	}
 
 	#
-	# Now we balance the matrix.
+	### Now we balance the matrix.
+	#### @h
 	#
 	# Balancing the unsymmetric matrix A.
 	# Perl code translated by Nick Ing-Simmons <Nick@Ing-Simmons.net>
@@ -623,7 +680,7 @@ sub hqr_eigen_hessenberg
 		my $its = 0;
 		my $na  = $n - 1;
 
-		while ($its < $MAX_ITERATIONS)
+		while ($its < $iteration{hessenberg})
 		{
 			#
 			# Look for single small sub-diagonal element;
@@ -680,7 +737,7 @@ sub hqr_eigen_hessenberg
 				next ROOT;
 			}
 
-			croak "Too many iterations ($its) at n=$n\n" if ($its == $MAX_ITERATIONS);
+			croak "Too many iterations ($its) at n=$n\n" if ($its >= $iteration{hessenberg});
 
 			if ($its && $its % 10 == 0)
 			{
@@ -691,7 +748,7 @@ sub hqr_eigen_hessenberg
 				#
 
 				$t += $x;
-				for (my $i = 1; $i <= $n; $i++)
+				for my $i (1 .. $n)
 				{
 					$h[$i][$i] -= $x;
 				}
@@ -733,11 +790,11 @@ sub hqr_eigen_hessenberg
 				  );
 			}
 
-			for (my $i = $m + 2; $i <= $n; $i++)
+			for my $i (($m + 2) .. $n)
 			{
 				$h[$i][$i - 2] = 0.0;
 			}
-			for (my $i = $m + 3; $i <= $n; $i++)
+			for my $i (($m + 3) .. $n)
 			{
 				$h[$i][$i - 3] = 0.0;
 			}
@@ -746,7 +803,7 @@ sub hqr_eigen_hessenberg
 			# Double QR step involving rows $l to $n and
 			# columns $m to $n.
 			#
-			for (my $k = $m; $k <= $na; $k++)
+			for my $k ($m .. $na)
 			{
 				my $notlast = ($k != $na);
 				if ($k != $m)
@@ -785,7 +842,7 @@ sub hqr_eigen_hessenberg
 				#
 				# Row modification.
 				#
-				for (my $j = $k; $j <= $n; $j++)
+				for my $j ($k .. $n)
 				{
 					$p = $h[$k][$j] + $q * $h[$k + 1][$j];
 
@@ -805,7 +862,7 @@ sub hqr_eigen_hessenberg
 				#
 				# Column modification.
 				#
-				for (my $i = $l; $i <= $j; $i++)
+				for my $i ($l .. $j)
 				{
 					$p = $x * $h[$i][$k] + $y * $h[$i][$k + 1];
 
@@ -900,23 +957,23 @@ sub poly_roots
 		#
 		# QR iterations from the matrix.
 		#
-		push @x, hqr_eigen_hessenberg($matrix_ref);
+		@x = hqr_eigen_hessenberg($matrix_ref);
 	}
 	elsif ($#coefficients == 4)
 	{
-		push @x, quartic_roots(@coefficients);
+		@x = quartic_roots(@coefficients);
 	}
 	elsif ($#coefficients == 3)
 	{
-		push @x, cubic_roots(@coefficients);
+		@x = cubic_roots(@coefficients);
 	}
 	elsif ($#coefficients == 2)
 	{
-		push @x, quadratic_roots(@coefficients);
+		@x = quadratic_roots(@coefficients);
 	}
 	elsif ($#coefficients == 1)
 	{
-		push @x, linear_roots(@coefficients);
+		@x = linear_roots(@coefficients);
 	}
 
 	@x = map(root($_, $subst_degree), @x) if ($subst_degree > 1);
@@ -1091,7 +1148,22 @@ sub poly_evaluate
 	my($coef_ref, $xval_ref) = @_;
 
 	my @coefficients = @$coef_ref;
-	my @values = @$xval_ref;
+	my @values;
+
+	#
+	# Allow some flexibility in sending the x-values.
+	#
+	if (ref $xval_ref eq "ARRAY")
+	{
+		@values = @$xval_ref;
+	}
+	else
+	{
+		#
+		# It could happen. Someone might type \$x instead of $x.
+		#
+		@values = ( (ref $xval_ref eq "SCALAR")? $$xval_ref: $xval_ref);
+	}
 
 	#
 	# Move the leading coefficient off the polynomial list
@@ -1106,7 +1178,7 @@ sub poly_evaluate
 			$results[$j] = $results[$j] * $values[$j] + $c;
 		}
 	}
-	return @results;
+	return wantarray? @results: $results[0];
 }
 
 #
@@ -1257,6 +1329,95 @@ sub sturm_real_root_range_count
 }
 
 #
+# @roots = sturm_bisection_roots(\@chain, $from, $to);
+#
+# Using the bisection method on the root count method of Sturm, finds
+# the real roots of a polynomial function. Will not find complex roots.
+#
+sub sturm_bisection_roots
+{
+	my($chain_ref, $from, $to) = @_;
+	my(@coefficients) = @{${$chain_ref}[0]};
+	my @roots;
+
+	#
+	#### @coefficients
+	#
+	#
+	# If we have a linear equation, just solve the thing. We're not
+	# going to find a useful second derivative, after all. (Which
+	# would raise the question of why we're here without a useful
+	# Sturm chain, but never mind...)
+	#
+	if ($#coefficients == 1)
+	{
+		push @roots, linear_roots(@coefficients);
+		return @roots;
+	}
+
+	#
+	# Do Sturm bisection here.
+	#
+	my $range_count = sturm_real_root_range_count($chain_ref, $from, $to);
+
+	#
+	# If we're down to one root in this range, use Laguerre's method
+	# to hunt it down.
+	#
+	if ($range_count == 1)
+	{
+		push @roots, laguerre(\@coefficients, ($from + $to)/2.0);
+	}
+	elsif ($range_count > 1)
+	{
+		my $its = 0;
+
+		ROOT:
+		for (;;)
+		{
+			my $mid = ($to + $from)/2.0;
+			my $frommid_count = sturm_real_root_range_count($chain_ref, $from, $mid);
+			my $midto_count = sturm_real_root_range_count($chain_ref, $mid, $to);
+
+			#
+			### $its
+			### $from
+			### $to
+			### $mid
+			### $frommid_count
+			### $midto_count
+			#
+
+			#
+			# Bisect again if we only narrowed down to a range
+			# containing all the roots.
+			#
+			if ($frommid_count == 0)
+			{
+				$from = $mid;
+			}
+			elsif ($midto_count == 0)
+			{
+				$to = $mid;
+			}
+			else
+			{
+				#
+				# We've divided the roots between two ranges. Do it
+				# again until each range has a single root in it.
+				#
+				push @roots, sturm_bisection_roots($chain_ref, $from, $mid);
+				push @roots, sturm_bisection_roots($chain_ref, $mid, $to);
+				last ROOT;
+			}
+			croak "Too many iterations ($its) at mid=$mid\n" if ($its >= $iteration{sturm_bisection});
+			$its++;
+		}
+	}
+	return @roots;
+}
+
+#
 # @signs = sturm_minus_inf(\@chain);
 #
 # Return an array of signs from the chain at minus infinity.
@@ -1362,6 +1523,116 @@ sub sturm_sign_count
 	return $scnt;
 }
 
+sub laguerre
+{
+	my($p_ref, $xval_ref) = @_;
+	my(@p0) = @$p_ref;
+	my(@p1) = poly_derivative(@p0);
+	my(@p2) = poly_derivative(@p1);
+	my $n = $#p0;
+	my @values;
+	my @roots;
+
+	#
+	# Allow some flexibility in sending the x-values.
+	#
+	if (ref $xval_ref eq "ARRAY")
+	{
+		@values = @$xval_ref;
+	}
+	else
+	{
+		#
+		# It could happen. Someone might type \$x instead of $x.
+		#
+		@values = ( (ref $xval_ref eq "SCALAR")? $$xval_ref: $xval_ref);
+	}
+
+	foreach my $x (@values)
+	{
+		my $its = 0;
+
+		ROOT:
+		for(;;)
+		{
+			#
+			# There's a better way to do this, but
+			# I'm going for "simple to code" for
+			# this developer release.
+			#
+			my $valp0 = poly_evaluate($p_ref, $x);
+			my $valp1 = poly_evaluate(\@p1, $x);
+			my $valp2 = poly_evaluate(\@p2, $x);
+
+			if (abs($valp0) <= $tolerance{laguerre})
+			{
+				push @roots, $x;
+				last ROOT;
+			}
+
+			#
+			### $its
+			### $x
+			### $valp0
+			### $valp1
+			### $valp2
+			#
+			my $g = $valp1/$valp0;
+			my $h = $g * $g - $valp2/$valp0;
+			my $f = sqrt(($n - 1) * ($n * $h - $g*$g));
+
+			#
+			# Divide by the largest value of $g plus
+			# $f, bearing in mind that $f is the result
+			# of a square root function and may be positive
+			# or negative.
+			#
+			# Use the abs() function to determine size
+			# since $g or $f may be complex numbers.
+			#
+			$f = - $f if (abs($g - $f) > abs($g + $f));
+			my $dx = $n/($g + $f);
+
+			$x -= $dx;
+			if (abs($dx) <= $tolerance{laguerre})
+			{
+				push @roots, $x;
+				last ROOT;
+			}
+
+			croak "Too many iterations ($its) at dx=$dx\n" if ($its >= $iteration{laguerre});
+			$its++;
+		}
+	}
+	return @roots;
+}
+
+sub poly_gcd
+{
+	my($c1_ref, $c2_ref) = @_;
+}
+
+sub list_from_reference
+{
+	my($xval_ref) = @_;
+	my @values;
+
+	#
+	# Allow some flexibility in sending the x-values.
+	#
+	if (ref $xval_ref eq "ARRAY")
+	{
+		@values = @$xval_ref;
+	}
+	else
+	{
+		#
+		# It could happen. Someone might type \$x instead of $x.
+		#
+		@values = ( (ref $xval_ref eq "SCALAR")? $$xval_ref: $xval_ref);
+	}
+	return @values;
+}
 
 1;
 __END__
@@ -1454,7 +1725,9 @@ algorithms. They are all exported under the tag "numeric".
 
 =head3 poly_option()
 
-Set options that affect the behavior of the C<poly_roots()> function.
+Set options that affect the behavior of the C<poly_roots()> function. All options
+are set to either 1 ("on") or 0 ("off").
+
 This is the option function that deprecates C<set_hessenberg()> and
 C<get_hessenberg()>.
 
@@ -1484,20 +1757,20 @@ The current options available are:
 
 Use the QR Hessenberg matrix method to solve the polynomial. By default, this
 is set to 1. If set to 0, C<poly_roots()> uses one of the classical
-root-finding functions listed below if the degree of the polynomial is four or
-less.
+root-finding functions listed below, I<if> the degree of the polynomial is four
+or less.
 
 =item root_function
 
 If the polynomial is of the form C<ax**n + c>, poly_roots() will make use of the
-l<root()|Math::Complex/operations> function from Math::Complex. This takes
+L<root()|Math::Complex/OPERATIONS> function from Math::Complex. This takes
 precedence over the other solving methods.
 
 =item varsubst
 
 Reduce polynomials to a lower degree through variable substitution, if possible.
 
-For example, with varsubst on and the polynomial to solve is C<9x**6 + 128x**3 + 21>,
+For example, with varsubst set to one and the polynomial to solve is C<9x**6 + 128x**3 + 21>,
 then poly_roots() will reduce the polynomial to C<9y**2 + 128y + 21>, where y = x**3,
 and solve the quadratic (either classically or numerically, depending
 on the hessenberg option). Taking the cube root of each quadratic root
@@ -1509,7 +1782,8 @@ polynomial of high degree. In the above example, the order-six polynomial gets s
 with the quadratic_roots() function if the hessenberg option is zero.
 
 Currently the variable substitution is fairly simple and will only look
-for gaps of zeros in the coefficients that are multiples of 2, 3, 5, and 7.
+for gaps of zeros in the coefficients that are multiples of the prime numbers
+less than or equal to 31 (2, 3, 5, et cetera).
 
 =back
 
@@ -1548,6 +1822,9 @@ B<NOTE>: this function is replaced by the option function C<poly_option()>.
 These are the functions that solve polynomials via the classical methods.
 Quartic, cubic, quadratic, and even linear equations may be solved with
 these functions. They are all exported under the tag "classical".
+
+L</poly_roots()> will use these functions I<if> the hessenberg option
+is set to 0, I<and if> the degree of the polynomial is four or less.
 
 The leading coefficient C<$a> must always be non-zero for the classical
 functions.
@@ -1603,8 +1880,11 @@ Return the number of I<unique>, I<real> roots of the polynomial.
     $unique_roots = poly_real_root_count(@coefficients);
 
 For example, the equation C<(x + 3)**3> forms the polynomial C<x**3 + 9x**2 + 27x + 27>,
-but C<poly_real_root_count(1, 9, 27, 27)> will return 1 for that polynomial since all
+but C<poly_real_root_count(1, 9, 27, 27)> will return 1 since all
 three roots are identical.
+
+Likewise, C<poly_real_root_count(1, -8, 25)> will return 0 because the two roots
+of C<x**2 -8x + 25> are both complex.
 
 This function is the all-in-one function to use instead of
 
@@ -1663,10 +1943,89 @@ and L</sturm_sign_chain()>
 See L</poly_real_root_count()> and L</sturm_real_root_range_count()> for examples
 of its use.
 
+=head3 sturm_bisection_roots()
+
+Return the I<real> roots counted by L</sturm_real_root_range_count()>. Uses the
+bisection method combined with C<sturm_real_range_count()> to narrow the range
+to a single root, then uses L</laguerre()> to find the value.
+
+    my($from, $to) = (-1000, 0);
+    my @chain = poly_sturm_chain(@coefficients);
+    my @roots = sturm_bisection_roots(\@chain, $from, $to);
+
+As it is using the Sturm functions, it will find only the real roots.
+
 =head2 Utility Functions
 
 These are internal functions used by the other functions listed above,
 but which may also be useful to the user. They are all exported under the tag "utility".
+
+=head3 epsilon()
+
+Returns the machine epsilon value that was calculated when this module was loaded.
+
+The value may be changed, although this in general is not recommended.
+
+    my $old_epsilon = epsilon($new_epsilon);
+
+The previous value of epsilon may be saved to be restored later.
+
+The Wikipedia article at L<http://en.wikipedia.org/wiki/Machine_epsilon/> has
+more information on the subject.
+
+=head3 laguerre()
+
+A numerical method for finding a root of an equation, especially made for polynomials.
+
+    @roots = laguerre(\@coefficients, \@xvalues);
+    push @roots, laguerre(\@coefficients, $another_xvalue);
+
+For each x value the function will attempt to find a root closest to it.
+
+=head3 poly_iteration()
+
+Sets the limit to the number of iterations that may go by before giving up on
+finding a root. Each method of root-finding used by L</poly_roots()>, L</sturm_bisection_roots()>,
+and L</laguerre()> has its own iteration limit, which may be found, like L</poly_option()>, by
+simply looking at the return value of the function.
+
+    #
+    # Get all of the current iteration limits.
+    #
+    my %its_limits = poly_iteration();
+
+    #
+    # Double the limit for the hessenberg method, but set the limit
+    # for Laguerre's method to 20.
+    #
+    poly_iteration(hessenberg => $its_limits{hessenberg} * 2, laguerre => 12);
+
+    #
+    # Reset the limits with the former values, but save the values we had
+    # for later.
+    #
+    my %hl_limits = poly_iteration(%its_limits);
+
+There are limit values for
+
+=over 4
+
+=item hessenberg
+
+The numeric method used by poly_roots(), if the hessenberg option is set.
+
+=item laguerre
+
+The numeric method used by laguerre(). Laguerre's method is used within
+sturm_bisection_roots() once an individual root has been found within a range.
+
+=item sturm_bisection
+
+The bisection method used to find roots within a range.
+
+=back
+
+All of these items start with a default value of 60.
 
 =head3 poly_derivative()
 
@@ -1685,19 +2044,6 @@ constant term is set to zero; to override this use
     @integral = poly_antiderivative(@coefficients);
     $integral[$#integral] = $const_term;
 
-=head3 epsilon()
-
-Returns the machine epsilon value that was calculated when this module was loaded.
-
-The value may be changed, although this in general is not recommended.
-
-    my $old_epsilon = epsilon($new_epsilon);
-
-The previous value of epsilon may be saved to be restored later.
-
-The Wikipedia article at L<http://en.wikipedia.org/wiki/Machine_epsilon/> has
-more information on the subject.
-
 =head3 simplified_form()
 
 Return the polynomial adjusted by removing any leading zero coefficients
@@ -1707,8 +2053,11 @@ coefficient of the highest power).
 =head3 poly_evaluate()
 
 Returns the values of the polynomial given a list of arguments. Unlike
-most of the above functions, this takes the reference of the coefficient list, in
-order to feed the multiple x-values (that are also passed in as a reference).
+most of the above functions, this takes the reference of the coefficient list,
+which lets the function take a single x-value or multiple x-values passed in
+as a reference.
+
+The function may return a list...
 
     my @polynomial = (1, -12, 0, 8, 13);
     my @xvals = (0, 1, 2, 3, 5, 7);
@@ -1719,6 +2068,12 @@ order to feed the multiple x-values (that are also passed in as a reference).
     for my $j (0..$#yvals) {
         print "Evaluates at ", $xvals[$j], " to ", $yvals[$j], "\n";
     }
+
+or return a scalar.
+ 
+    my $x_mean = ($xvals[0] + $xvals[$#xvals])/2.0;
+    my $y_mean = poly_evaluate(\@polynomial, $x_mean);
+
 
 =head3 poly_nonzero_term_count()
 
@@ -1824,19 +2179,36 @@ William Press, Brian P. Flannery, Saul A. Teukolsky, and William T. Vetterling I
 Cambridge University Press, 1988.
 They have a web site for their book, L<http://www.nr.com/>.
 
-=head2 Sturm's Sequence
+=head2 Sturm's Sequence and Laguerre's Method
 
 Dörrie, Heinrich. I<100 Great Problems of Elementary Mathematics; Their History and Solution>.
 New York: Dover Publications, 1965. Translated by David Antin.
 
+=over 5
+
 Discusses Charles Sturm's 1829 paper with an eye towards mathematical proof
 rather than an algorithm, but is still very useful.
 
+=back
+
 Glassner, Andrew S. I<Graphics Gems>. Boston: Academic Press, 1990. 
+
+=over 5
 
 The chapter "Using Sturm Sequences to Bracket Real Roots
 of Polynomial Equations" (by D. G. Hook and P. R. McAree) has a clearer
 description of the actual steps needed to implement Sturm's method.
+
+=back
+
+Acton, Forman S. I<Numerical Methods That Work>. New York: Harper & Row, Publishers, 1970.
+
+=over 5
+
+Lively, opinionated book on numerical equation solving. I looked it up when it
+became obvious that everone was quoting Acton when discussing Laguerre's method.
+
+=back
 
 =head1 SEE ALSO
 

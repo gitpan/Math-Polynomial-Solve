@@ -18,7 +18,7 @@ my $build = Module::Build->new(
 	create_readme => 0,
 	create_makefile_pl => 'traditional',
 	meta_merge => {
-		keyword => [ qw(math polynomial sturm) ],
+		keyword => [ qw(math polynomial Sturm Nickalls Laguerre) ],
 	},
 );
 
