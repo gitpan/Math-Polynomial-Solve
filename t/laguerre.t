@@ -3,7 +3,7 @@
 
 use Test::Simple tests => 6;
 
-use Math::Polynomial::Solve qw(laguerre poly_evaluate);
+use Math::Polynomial::Solve qw(laguerre poly_evaluate fltcmp);
 use Math::Complex;
 use strict;
 use warnings;

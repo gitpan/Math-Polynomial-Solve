@@ -3,7 +3,7 @@
 #
 use Test::Simple tests => 30;
 
-use Math::Polynomial::Solve qw(:numeric poly_nonzero_term_count);
+use Math::Polynomial::Solve qw(:numeric poly_nonzero_term_count fltcmp);
 use Math::Complex;
 use strict;
 use warnings;

@@ -1,5 +1,17 @@
 Revision history for Perl extension Math::Polynomial::Solve.
 
+2.60
+     Dec 15 2010
+	- Moved fltcmp() from the test directory to the module, and
+	  added it to the :utility list. Added a "fltcmp" key to the
+	  %tolerance list.
+	- Changed all of the test files to use the module's fltcmp();
+	- More documentation clean-up!
+	- Released!
+     Dec 14 2010
+	- Created and documented poly_tolerance(), letting the user
+	  set the tolerance value for laguerre().
+	- Documentation clean-up.
 2.55_4
      Dec 3 2010
 	- Function laguerre() now works with a better tolerance value.

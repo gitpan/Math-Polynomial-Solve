@@ -40,6 +40,7 @@ use warnings;
 	) ],
 	'utility' => [ qw(
 		epsilon
+		fltcmp
 		poly_iteration
 		laguerre
 		poly_antiderivative
@@ -55,7 +56,7 @@ use warnings;
 @EXPORT_OK = ( @{ $EXPORT_TAGS{'classical'} }, @{ $EXPORT_TAGS{'numeric'} },
 	@{ $EXPORT_TAGS{'sturm'} }, @{ $EXPORT_TAGS{'utility'} } );
 
-our $VERSION = '2.55_4';
+our $VERSION = '2.60';
 
 #
 # Options to set or unset to force poly_roots() to use different
@@ -91,11 +92,12 @@ my %iteration = (
 );
 
 #
-# Values here are placeholders only. The actual values will get
-# set in the BEGIN block.
+# Some values here are placeholders only, and will get
+# replaced in the BEGIN block.
 #
 my %tolerance = (
 	laguerre => 1e-14,
+	fltcmp => 1.5e-8,
 );
 
 #
@@ -128,6 +130,24 @@ sub sign
 	my($x) = @_;
 	return 1 if ($x > 0);
 	return -1 if ($x < 0);
+	return 0;
+}
+
+#
+# if (fltcmp($x, $y) == 0) { ... }
+#
+# Compare two floating point numbers to a certain degree of accuracy.
+# Like other functions ending in "cmp", returns -1 if $x < $y, 1 if
+# $x > $y, and 0 if the arguments are equal, the difference being that
+# the comparisons are made within a tolerance set in poly_tolerance().
+#
+sub fltcmp
+{
+	my($a, $b) = @_;
+	#my($flt) = 0.25/16777216;	# a good enough value for testing.
+
+	return -1 if ($a + $tolerance{fltcmp} < $b);
+	return 1 if ($a - $tolerance{fltcmp} > $b);
 	return 0;
 }
 
@@ -187,6 +207,37 @@ sub poly_option
 	}
 
 	return %old_opts;
+}
+
+#
+# poly_tolerance(opt1 => n, opt2 => n, ...);
+#
+sub poly_tolerance
+{
+	my %tols = @_;
+	my %old_tols;
+
+	return %tolerance if (scalar @_ == 0);
+
+	foreach my $k (keys %tols)
+	{
+		#
+		# If this is a real tolerance limit, save its old value, then set it.
+		#
+		if (exists $iteration{$k})
+		{
+			my $val = abs($tols{$k});
+
+			$old_tols{$k} = $tolerance{$k};
+			$tolerance{$k} = $val;
+		}
+		else
+		{
+			croak "poly_tolerance(): unknown key $k.";
+		}
+	}
+
+	return %old_tols;
 }
 
 #
@@ -1553,7 +1604,7 @@ sub laguerre
 		my $its = 0;
 
 		ROOT:
-		for(;;)
+		for (;;)
 		{
 			#
 			# There's a better way to do this, but
@@ -1571,11 +1622,11 @@ sub laguerre
 			}
 
 			#
-			### $its
-			### $x
-			### $valp0
-			### $valp1
-			### $valp2
+			### At Iteration: $its
+			### X: $x
+			### f(x): $valp0
+			### f'(x): $valp1
+			### f''(x): $valp2
 			#
 			my $g = $valp1/$valp0;
 			my $h = $g * $g - $valp2/$valp0;
@@ -1612,27 +1663,6 @@ sub poly_gcd
 	my($c1_ref, $c2_ref) = @_;
 }
 
-sub list_from_reference
-{
-	my($xval_ref) = @_;
-	my @values;
-
-	#
-	# Allow some flexibility in sending the x-values.
-	#
-	if (ref $xval_ref eq "ARRAY")
-	{
-		@values = @$xval_ref;
-	}
-	else
-	{
-		#
-		# It could happen. Someone might type \$x instead of $x.
-		#
-		@values = ( (ref $xval_ref eq "SCALAR")? $$xval_ref: $xval_ref);
-	}
-	return @values;
-}
 
 1;
 __END__
@@ -1852,7 +1882,7 @@ Gives the roots of the cubic equation
 
     ax**3 + bx**2 + cx + d = 0
 
-by the method described by R. W. D. Nickalls (see the L</"ACKNOWLEDGMENTS">
+by the method described by R. W. D. Nickalls (see the L</ACKNOWLEDGMENTS>
 section below). Returns a three-element list. The first element will
 always be real. The next two values will either be both real or both
 complex numbers.
@@ -1863,7 +1893,7 @@ Gives the roots of the quartic equation
 
     ax**4 + bx**3 + cx**2 + dx + e = 0
 
-using Ferrari's method (see the L</"ACKNOWLEDGMENTS"> section below). Returns
+using Ferrari's method (see the L</ACKNOWLEDGMENTS> section below). Returns
 a four-element list. The first two elements will be either
 both real or both complex. The next two elements will also be alike in
 type.
@@ -1920,28 +1950,71 @@ Internally, this is equivalent to:
     my @signs = sturm_sign_chain(\@chain, [$x0, $x1]);
     return sturm_sign_count(@{$signs[0]}) - sturm_sign_count(@{$signs[1]});
 
-=head3 sturm_sign_minus_inf()
+=head3 Sturm Sign Sequence Functions
 
-=head3 sturm_sign_plus_inf()
+=head4 sturm_sign_chain()
 
-=head3 sturm_sign_chain()
+=head4 sturm_sign_minus_inf()
 
-The functions that return the array of signs that are used by the functions
+=head4 sturm_sign_plus_inf()
+
+These functions return the array of signs that are used by the functions
 L</poly_real_root_count()> and L</sturm_real_root_range_count()> to find
-the number of real roots in a polynomial. C<sturm_sign_minus_inf()>
-and C<sturm_sign_plus_inf()> return a single array for the values at minus
-infinity and plus infinity (for open-ended ranges, e.g., "all roots less than zero").
-C<sturm_sign_chain()> returns an array of arrays of signs, one for each X value
-passed into the function.
+the number of real roots in a polynomial.
+
+In normal use you will probably never need to use them, unless you want
+to examine the internals of the Sturm functions:
+
+    #
+    # Examine the sign changes that occur at each endpoint of
+    # the x range.
+    #
+    my(@coefficients) = (1, 4, 7, 23);
+    my(@xvals) = (-12, 12);
+
+    my @chain = poly_sturm_chain( @coefficients);
+    my @signs = sturm_sign_chain(\@chain, \@xvals);  # An array of arrays.
+
+    print "\nPolynomial: [", join(", ", @coefficients), "]\n";
+
+    foreach my $j (0..$#signs)
+    {
+        my @s = @{$signs[$j]};
+        print $xval[$j], "\n",
+              "\t", join(", ", @s), "], sign count = ",
+              sturm_sign_count(@s), "\n\n";
+    }
+
+Similar examinations can be made at plus and minus infinity:
+
+    #
+    # Examine the sign changes that occur between plus and minus
+    # infinity.
+    #
+    my @coefficients = (1, 4, 7, 23);
+
+    my @chain = poly_sturm_chain( @coefficients);
+    my @smi = sturm_sign_minus_inf(\@chain);
+    my @spi = sturm_sign_plus_inf(\@chain);
+
+    print "\nPolynomial: [", join(", ", @coefficients), "]\n";
+
+    print "Minus Inf:\n",
+          "\t", join(", ", @smi), "], sign count = ",
+          sturm_sign_count(@smi), "\n\n";
+
+    print "Plus Inf:\n",
+          "\t", join(", ", @spi), "], sign count = ",
+          sturm_sign_count(@spi), "\n\n";
+
 
 =head3 sturm_sign_count()
 
 Counts and returns the number of sign changes in a sequence of signs,
-such as those returned by L</sturm_sign_minus_inf()>, L</sturm_sign_plus_inf()>,
-and L</sturm_sign_chain()>
+such as those returned by the L</Sturm Sign Sequence Functions>
 
-See L</poly_real_root_count()> and L</sturm_real_root_range_count()> for examples
-of its use.
+See L</poly_real_root_count()> and L</sturm_real_root_range_count()> for
+examples of its use.
 
 =head3 sturm_bisection_roots()
 
@@ -1973,6 +2046,33 @@ The previous value of epsilon may be saved to be restored later.
 The Wikipedia article at L<http://en.wikipedia.org/wiki/Machine_epsilon/> has
 more information on the subject.
 
+=head3 fltcmp()
+
+Compare two floating point numbers within a degree of accuracy.
+
+Like most functions ending in "cmp", this one returns -1 if the first
+argument tests as less than the second argument, 1 if the first tests
+greater than the second, and 0 otherwise. Comparisons are made within
+a tolerance range that may be set with L</poly_tolerance()>.
+
+    #
+    # Set a very forgiving comparison tolerance.
+    #
+    poly_tolerance(fltcmp => 1e-5);
+    my @x = poly_roots(@cubic);
+    my @y = poly_evaluate(\@cubic, \@x);
+
+    if (fltcmp($y[0], 0.0) == 0 and
+        fltcmp($y[1], 0.0) == 0 and
+        fltcmp($y[2], 0.0) == 0)
+    {
+        print "Roots found: (", join(", ", @x), ")\n";
+    }
+    else
+    {
+        print "Problem root-finding for [", join(", ", @cubic), "]\n";
+    }
+
 =head3 laguerre()
 
 A numerical method for finding a root of an equation, especially made for polynomials.
@@ -1984,10 +2084,11 @@ For each x value the function will attempt to find a root closest to it.
 
 =head3 poly_iteration()
 
-Sets the limit to the number of iterations that may go by before giving up on
-finding a root. Each method of root-finding used by L</poly_roots()>, L</sturm_bisection_roots()>,
-and L</laguerre()> has its own iteration limit, which may be found, like L</poly_option()>, by
-simply looking at the return value of the function.
+Sets the limit to the number of iterations that a solving method may go
+through before giving up trying to find a root. Each method of root-finding
+used by L</poly_roots()>, L</sturm_bisection_roots()>, and L</laguerre()>
+has its own iteration limit, which may be found, like L</poly_option()>, by
+simply looking at the return value of poly_iteration().
 
     #
     # Get all of the current iteration limits.
@@ -2006,26 +2107,61 @@ simply looking at the return value of the function.
     #
     my %hl_limits = poly_iteration(%its_limits);
 
-There are limit values for
+There are iteration limit values for:
 
 =over 4
 
 =item hessenberg
 
 The numeric method used by poly_roots(), if the hessenberg option is set.
+Its default value is 60.
 
 =item laguerre
 
 The numeric method used by laguerre(). Laguerre's method is used within
-sturm_bisection_roots() once an individual root has been found within a range.
+sturm_bisection_roots() once an individual root has been found within a
+range, and of course it may be called independently. Its default value is
+60.
 
 =item sturm_bisection
 
-The bisection method used to find roots within a range.
+The bisection method used to find roots within a range. Its default value
+is 100.
 
 =back
 
-All of these items start with a default value of 60.
+
+=head3 poly_tolerance()
+
+Set the degree of accuracy needed for comparisons to be equal or roots to
+be found.  Amongst the root finding functions this currently this only
+affects laguerre(), as the Hessenberg matrix method determines how close
+it needs to get using a complicated formula based on epsilon.
+
+    #
+    # Quadruple the tolerance for Laguerre's method.
+    #
+    my %tolerances = poly_tolerance();
+
+    poly_tolerance(laguerre => 4 * $tolerances{laguerre});
+
+There are iteration limit values for:
+
+=over 4
+
+=item laguerre
+
+The numeric method used by laguerre(). Laguerre's method is used within
+sturm_bisection_roots() once an individual root has been found within a range,
+and of course it may be called independently. Its default value is 60.
+
+=item fltcmp
+
+A comparison function that determines if one argument is less than, equal to,
+or greater than, the other. Comparisons are made within a range determined by
+the tolerance.
+
+=back
 
 =head3 poly_derivative()
 
@@ -2059,11 +2195,11 @@ as a reference.
 
 The function may return a list...
 
-    my @polynomial = (1, -12, 0, 8, 13);
+    my @coefficients = (1, -12, 0, 8, 13);
     my @xvals = (0, 1, 2, 3, 5, 7);
-    my @yvals = poly_evaluate(\@polynomial, \@xvals);
+    my @yvals = poly_evaluate(\@coefficients, \@xvals);
 
-    print "Polynomial: [", join(", ", @polynomial), "]\n";
+    print "Polynomial: [", join(", ", @coefficients), "]\n";
 
     for my $j (0..$#yvals) {
         print "Evaluates at ", $xvals[$j], " to ", $yvals[$j], "\n";
@@ -2071,8 +2207,8 @@ The function may return a list...
 
 or return a scalar.
  
-    my $x_mean = ($xvals[0] + $xvals[$#xvals])/2.0;
-    my $y_mean = poly_evaluate(\@polynomial, $x_mean);
+    my $x_median = ($xvals[0] + $xvals[$#xvals])/2.0;
+    my $y_median = poly_evaluate(\@coefficients, $x_median);
 
 
 =head3 poly_nonzero_term_count()
@@ -2084,8 +2220,8 @@ Returns a simple count of the number of coefficients that aren't zero.
 Simple function to multiply all of the coefficients by a constant. Like
 C<poly_evaluate()>, uses the reference of the coefficient list.
 
-    my @polynomial = (1, 7, 0, 12, 19);
-    my @polynomial3 = poly_constmult(\@polynomial, 3);
+    my @coefficients = (1, 7, 0, 12, 19);
+    my @coef3 = poly_constmult(\@coefficients, 3);
 
 =head3 poly_divide()
 
@@ -2093,9 +2229,9 @@ Divide one polynomial by another. Like C<poly_evaluate()>, the function takes
 a reference to the coefficient list. It returns a reference to both a quotient
 and a remainder.
 
-    my @polynomial = (1, -13, 59, -87);
+    my @coefficients = (1, -13, 59, -87);
     my @polydiv = (3, -26, 59);
-    my($q, $r) = poly_divide(\@polynomial, \@polydiv);
+    my($q, $r) = poly_divide(\@coefficients, \@polydiv);
     my @quotient = @$q;
     my @remainder = @$r;
 
@@ -2103,10 +2239,10 @@ and a remainder.
 
 There are no default exports. The functions may be individually named in an
 export list, but there are also four export tags:
-L<classical|"Classical Functions">,
-L<numeric|"Numeric Functions">,
-L<sturm|"Sturm Functions">, and
-L<utility|"Utility Functions">.
+L<classical|Classical Functions>,
+L<numeric|Numeric Functions>,
+L<sturm|Sturm Functions>, and
+L<utility|Utility Functions>.
 
 =head1 ACKNOWLEDGMENTS
 

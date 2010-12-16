@@ -4,7 +4,7 @@
 #
 use Test::Simple tests => 24;
 
-use Math::Polynomial::Solve qw(:numeric);
+use Math::Polynomial::Solve qw(:numeric fltcmp);
 use Math::Complex;
 use strict;
 use warnings;
