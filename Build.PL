@@ -4,16 +4,24 @@ use warnings;
 
 my $build = Module::Build->new(
 	module_name => 'Math::Polynomial::Solve',
-	abstract => 'Find the Roots of Polynomial Equations',
-	dist_author => 'John M. Gamble <jgamble@cpan.org>',
-	dist_version_from => 'lib/Math/Polynomial/Solve.pm',  
+
+	dist_abstract => 'Find the Roots of Polynomial Equations',
+	dist_author => ['John M. Gamble <jgamble@cpan.org>'],
+	dist_version => '2.62_1',  
+	dist_name => 'Math-Polynomial-Solve',
 
 	requires => {
 		perl=> '5.6.0',
 		'Math::Complex'=> '1.36',  # Bugfix of Im().
 	},
 
-	build_requires => { 'Test::Simple' => 0 },
+	configure_requires => {
+		'Module::Build' => '0.3624',
+	},
+
+	build_requires => {
+		'Test::Simple' => 0
+	},
 
 	license => 'perl',
 	create_readme => 0,
@@ -21,7 +29,15 @@ my $build = Module::Build->new(
 	meta_merge => {
 		keyword => [ qw(math polynomial quadratic cubic quartic matrix
 			        Sturm Nickalls Ferrari Laguerre Hessenberg) ],
+		resources => {
+			repository => {
+				url => 'git://github.com/jgamble/Math-Polynomial-Solve.git',
+				web => 'https://github.com/jgamble/Math-Polynomial-Solve',
+				type => 'git',
+			},
+		},
 	},
+
 );
 
 $build->create_build_script;
