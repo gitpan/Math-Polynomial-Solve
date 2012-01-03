@@ -1,6 +1,6 @@
 package Math::Polynomial::Solve;
 
-require 5.006;
+require 5.008003;
 
 use Math::Complex;
 use Carp;
@@ -59,7 +59,7 @@ use warnings;
 @EXPORT_OK = ( @{ $EXPORT_TAGS{'classical'} }, @{ $EXPORT_TAGS{'numeric'} },
 	@{ $EXPORT_TAGS{'sturm'} }, @{ $EXPORT_TAGS{'utility'} } );
 
-our $VERSION = '2.62_1';
+our $VERSION = '2.62_2';
 
 #
 # Options to set or unset to force poly_roots() to use different
@@ -1281,7 +1281,7 @@ sub poly_derivaluate
 		{
 			$val = $val * $x + $c;
 			$d1val = $d1val * $x + ($c *= $n--);
-			$d2val = $d2val * $x + $c;
+			$d2val = $d2val * $x + ($c * $n);
 		}
 
 		#
@@ -1698,6 +1698,13 @@ sub laguerre
 			my $h = $g * $g - $d2y/$y;
 			my $f = sqrt(($n - 1) * ($n * $h - $g*$g));
 			$f = - $f if (abs($g - $f) > abs($g + $f));
+if (ref($f) eq "Math::Complex") {
+print "Iteration $its, x = $x, y = $y, dy = $dy, d2y = $d2y\n";
+print "g = $g\nh = $h\nf = $f\n";
+print "g * g = ", $g*$g, "\n";
+print "n * h = ", $n*$h, "\n";
+print "n * h - g*g = ", $n*$h - $g*$g, "\n\n";
+}
 
 			#
 			#### g = $g

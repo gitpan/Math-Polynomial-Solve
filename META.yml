@@ -6,8 +6,25 @@ build_requires:
   Test::Simple: 0
 configure_requires:
   Module::Build: 0.3624
-generated_by: 'Module::Build version 0.3624'
-keyword:
+dynamic_config: 1
+generated_by: 'Module::Build version 0.38, CPAN::Meta::Converter version 2.112621'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Math-Polynomial-Solve
+provides:
+  Math::Polynomial::Solve:
+    file: lib/Math/Polynomial/Solve.pm
+    version: 2.62_2
+requires:
+  Math::Complex: 1.36
+  perl: v5.8.3
+resources:
+  license: http://dev.perl.org/licenses/
+  repository: git://github.com/jgamble/Math-Polynomial-Solve.git
+version: 2.62_2
+x_keyword:
   - math
   - polynomial
   - quadratic
@@ -19,22 +36,3 @@ keyword:
   - Ferrari
   - Laguerre
   - Hessenberg
-license: perl
-meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.4.html
-  version: 1.4
-name: Math-Polynomial-Solve
-provides:
-  Math::Polynomial::Solve:
-    file: lib/Math/Polynomial/Solve.pm
-    version: 2.62_1
-requires:
-  Math::Complex: 1.36
-  perl: v5.6.0
-resources:
-  license: http://dev.perl.org/licenses/
-  repository:
-    type: git
-    url: git://github.com/jgamble/Math-Polynomial-Solve.git
-    web: https://github.com/jgamble/Math-Polynomial-Solve
-version: 2.62_1
