@@ -1,5 +1,42 @@
 Revision history for Perl extension Math::Polynomial::Solve.
 
+2.62_3
+     Aug 23 2012
+	- sturm_bisection_roots(), which was supposed to only
+	  return a polynomial's real roots, could occasionally
+	  return complex roots. This was because the laguerre()
+	  function could occasionally slip into the Complex
+	  plane while doing its hunting. Put a "no Math::Complex"
+	  line at the start of the function to prevent this.
+	- Did the same for newtonraphson(), as its primary use
+	  is to find real roots.
+	- Made sure the documentation makes the real roots only
+	  condition of laguerre() and newtonraphson() clear.
+     Jul 18 2012
+	- Changed the Test::Pod requirement in pod.t from
+	  version 1.00 to 1.41. Didn't put the version
+	  requirement in Build.PL because it's silly to
+	  block installation because of POD testing.
+	- Put "=encoding utf8" command in the first line of my
+	  POD. One of my references has a non-ASCII character in
+	  his name, and Pod-Simple now warns about that as of May.
+	  Some searching seems to indicate that =encoding was
+	  introduced in Pod-Simple during perl version 5.10; we'll
+	  see whether older perls got the updated Pod-Simple.
+     Jul 10 2012
+	- Comment and Smart-Comment changes. Also removed the late
+	  Nick Ing-Simmons's e-mail address from comments.
+	- Changed the remaining C/Fortran-style down-count loop in
+	  hqr_eigen_hessenberg() to a Perl-style loop using reverse.
+	  Made sure edge cases were handled, and commented *why*
+	  early checks are made in that loop.
+	- Made variables $s and $z in hqr_eigen_hessenberg() local
+	  to their loops in an attempt to make the algorithm more
+	  easily read.
+     Jul 5  2012
+	- Changed the first C/Fortran-style down-count loop in
+	  hqr_eigen_hessenberg() to a Perl-style loop using reverse.
+
 2.62_2
      Jan 2  2012
 	- And more tests added to derivaluate.t. Up to CPAN we go.
@@ -7,7 +44,7 @@ Revision history for Perl extension Math::Polynomial::Solve.
 	- Bug in poly_derivaluat(). For polynomials degree 5 or higher,
 	  was returning the wrong second derivative value.
 	  Unfortunately, the testing of the function was only done
-	  indirectly in laguerre.t, and it, only had third degree
+	  indirectly in laguerre.t, and it only had third degree
 	  polynomials. Extended laguerre.t, and added derivaluate.t
 	  to test files.
      Nov 17 2011
@@ -19,7 +56,7 @@ Revision history for Perl extension Math::Polynomial::Solve.
 	  as seems to be currently required under the version of
 	  Module::Build that I'm developing with (the hash form looks
 	  to be for a later version that I cannot install yet).
-2.61_1
+2.62_1
      Oct 30 2011
 	- A couple more changes to Build.PL (dist_author and resources).
 	  Time to push this up to git and add it to CPAN.

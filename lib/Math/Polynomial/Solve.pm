@@ -8,7 +8,12 @@ use Exporter;
 use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
 use strict;
 use warnings;
-#use Smart::Comments q(#####);	# Three # for "I am here" messages, four # for dumps.
+
+#
+# Three # for "I am here" messages, four # for variable dumps.
+# Five # for a dump of the companion matrix.
+#
+#use Smart::Comments q(####);
 
 @ISA = qw(Exporter);
 
@@ -59,7 +64,7 @@ use warnings;
 @EXPORT_OK = ( @{ $EXPORT_TAGS{'classical'} }, @{ $EXPORT_TAGS{'numeric'} },
 	@{ $EXPORT_TAGS{'sturm'} }, @{ $EXPORT_TAGS{'utility'} } );
 
-our $VERSION = '2.62_2';
+our $VERSION = '2.62_3';
 
 #
 # Options to set or unset to force poly_roots() to use different
@@ -519,9 +524,10 @@ sub quartic_roots
 	return ($x[0] - $b4, $x[1] - $b4, $x[2] - $b4, $x[3] - $b4);
 }
 
-
+#
 # Perl code to find roots of a polynomial translated by Nick Ing-Simmons
-# <Nick@Ing-Simmons.net> from FORTRAN code by Hiroshi Murakami.
+# from FORTRAN code by Hiroshi Murakami.
+#
 # From the netlib archive: http://netlib.bell-labs.com/netlib/search.html
 # In particular http://netlib.bell-labs.com/netlib/opt/companion.tgz
 
@@ -592,12 +598,12 @@ sub build_companion
 	}
 
 	#
-	### Now we balance the matrix.
-	#### @h
+	##### @h
 	#
-	# Balancing the unsymmetric matrix A.
-	# Perl code translated by Nick Ing-Simmons <Nick@Ing-Simmons.net>
-	# from FORTRAN code by Hiroshi Murakami.
+	### Balancing the unsymmetric matrix A.
+	#
+	# Perl code translated by Nick Ing-Simmons from FORTRAN code
+	# by Hiroshi Murakami.
 	#
 	#  The Fortran code is based on the Algol code "balance" from paper:
 	#  "Balancing a Matrix for Calculation of Eigenvalues and Eigenvectors"
@@ -714,19 +720,19 @@ sub hqr_eigen_hessenberg
 	my $n   = $#h;
 
 	#
+	# Eigenvalue Computation by the Householder QR method for the
+	# Real Hessenberg matrix.
 	#
-	# Eigenvalue Computation by the Householder QR method for the Real Hessenberg matrix.
-	# Perl code translated by Nick Ing-Simmons <Nick@Ing-Simmons.net>
-	# from FORTRAN code by Hiroshi Murakami.
+	# Perl code translated by Nick Ing-Simmons from FORTRAN code
+	# by Hiroshi Murakami.
+	#
 	# The Fortran code is based on the Algol code "hqr" from the paper:
 	#   "The QR Algorithm for Real Hessenberg Matrices"
 	#   by R. S. Martin, G. Peters and J. H. Wilkinson,
 	#   Numer. Math. 14, 219-231(1970).
 	#
-	#
 	my($p, $q, $r);
 	my($w, $x, $y);
-	my($s, $z );
 	my $t = 0.0;
 
 	my @w;
@@ -742,11 +748,16 @@ sub hqr_eigen_hessenberg
 			#
 			# Look for single small sub-diagonal element;
 			#
-			my $l;
-			for ($l = $n; $l >= 2; $l--)
+			my $l = 1;
+			for my $d (reverse 2 .. $n)
 			{
-				last if ( abs( $h[$l][ $l - 1 ] ) <= $epsilon *
-					( abs( $h[ $l - 1 ][ $l - 1 ] ) + abs( $h[$l][$l] ) ) );
+				if (abs( $h[$d][ $d - 1 ] ) <= $epsilon *
+				    (abs( $h[ $d - 1 ][ $d - 1 ] ) +
+				     abs( $h[$d][$d] ) ) )
+				{
+					$l = $d;
+					last;
+				}
 			}
 
 			$x = $h[$n][$n];
@@ -810,7 +821,7 @@ sub hqr_eigen_hessenberg
 					$h[$i][$i] -= $x;
 				}
 
-				$s = abs($h[$n][$na]) + abs($h[$na][$n - 2]);
+				my $s = abs($h[$n][$na]) + abs($h[$na][$n - 2]);
 				$y = 0.75 * $s;
 				$x = $y;
 				$w = -0.4375 * $s * $s;
@@ -819,34 +830,49 @@ sub hqr_eigen_hessenberg
 			$its++;
 
 			#
-			# Look for two consecutive small sub-diagonal elements.
+			### Look for two consecutive small
+			### sub-diagonal elements.
 			#
-			my $m;
-			for ($m = $n - 2 ; $m >= $l ; $m--)
+			my $m = $l;	# Set in case we fall through the loop.
+			for my $d (reverse $l .. $n - 2)
 			{
-				$z = $h[$m][$m];
+				my $z = $h[$d][$d];
+				my $s = $y - $z;
 				$r = $x - $z;
-				$s = $y - $z;
-				$p = ($r * $s - $w) / $h[$m + 1][$m] + $h[$m][$m + 1];
-				$q = $h[$m + 1][$m + 1] - $z - $r - $s;
-				$r = $h[$m + 2][$m + 1];
+				$p = ($r * $s - $w) / $h[$d + 1][$d] + $h[$d][$d + 1];
+				$q = $h[$d + 1][$d + 1] - $z - $r - $s;
+				$r = $h[$d + 2][$d + 1];
 
 				$s = abs($p) + abs($q) + abs($r);
 				$p /= $s;
 				$q /= $s;
 				$r /= $s;
 
-				last if ($m == $l);
-				last if (
-					abs($h[$m][$m - 1]) * (abs($q) + abs($r)) <=
+				#
+				# The sub-diagonal check doesn't get made for
+				# the last iteration of the loop, and the only
+				# reason we have the loop continue up to this
+				# point is to set $p, $q, and $r.
+				#
+				last if ($d == $l);
+
+				if (abs($h[$d][$d - 1]) * (abs($q) + abs($r)) <=
 					$epsilon * abs($p) * (
-						  abs($h[$m - 1][$m - 1]) +
+						  abs($h[$d - 1][$d - 1]) +
 						  abs($z) +
-						  abs($h[$m + 1][$m + 1])
-					)
-				  );
+						  abs($h[$d + 1][$d + 1])
+					))
+				{
+					$m = $d;
+					last;
+				}
 			}
 
+			#
+			#### $n
+			#### $l
+			#### $m
+			#
 			for my $i (($m + 2) .. $n)
 			{
 				$h[$i][$i - 2] = 0.0;
@@ -862,6 +888,7 @@ sub hqr_eigen_hessenberg
 			#
 			for my $k ($m .. $na)
 			{
+				my $z;
 				my $notlast = ($k != $na);
 				if ($k != $m)
 				{
@@ -877,7 +904,7 @@ sub hqr_eigen_hessenberg
 					$r /= $x;
 				}
 
-				$s = sqrt($p * $p + $q * $q + $r * $r);
+				my $s = sqrt($p * $p + $q * $q + $r * $r);
 				$s = -$s if ($p < 0.0);
 
 				if ($k != $m)
@@ -921,7 +948,8 @@ sub hqr_eigen_hessenberg
 				#
 				for my $i ($l .. $j)
 				{
-					$p = $x * $h[$i][$k] + $y * $h[$i][$k + 1];
+					$p = $x * $h[$i][$k] +
+					     $y * $h[$i][$k + 1];
 
 					if ($notlast)
 					{
@@ -1008,9 +1036,10 @@ sub poly_roots
 	{
 		my $matrix_ref = build_companion(@coefficients);
 
-		#### Balanced Companion Matrix (row and column 0 will be undefs)...
-		#### $matrix_ref
-
+		#
+		### Balanced Companion Matrix
+		##### (row and column 0 will be undefs)...
+		##### $matrix_ref
 		#
 		# QR iterations from the matrix.
 		#
@@ -1253,9 +1282,9 @@ sub poly_derivaluate
 	#
 	# Be nice and check if the user accidentally passed in
 	# a reference for the $x value.
-	##### poly_derivaluate
-	##### $coef_ref
-	##### $x
+	### poly_derivaluate
+	#### $coef_ref
+	#### $x
 	#
 	croak "Used a reference instead of an X value in poly_derivaluate()" if (ref $x eq "ARRAY" or ref $x eq "SCALAR");
 
@@ -1643,6 +1672,7 @@ sub sturm_sign_count
 #
 sub laguerre
 {
+	no Math::Complex;
 	my($p_ref, $xval_ref) = @_;
 	my $n = $#$p_ref;
 	my @xvalues;
@@ -1745,6 +1775,7 @@ print "n * h - g*g = ", $n*$h - $g*$g, "\n\n";
 #
 sub newtonraphson
 {
+	no Math::Complex;
 	my($p_ref, $xval_ref) = @_;
 	my $n = $#$p_ref;
 	my @xvalues;
@@ -1815,6 +1846,8 @@ sub poly_gcd
 
 1;
 __END__
+
+=encoding utf8
 
 =head1 NAME
 
@@ -2237,6 +2270,7 @@ for polynomials.
   push @roots, laguerre(\@coefficients, $another_xvalue);
 
 For each x value the function will attempt to find a root closest to it.
+The function will return real roots only.
 
 =head3 newtonraphson()
 
@@ -2246,6 +2280,7 @@ Like laguerre, a numerical method for finding a root of an equation.
   push @roots, laguerre(\@coefficients, $another_xvalue);
 
 For each x value the function will attempt to find a root closest to it.
+The function will return real roots only.
 
 This function is provided for comparisons purposes for the user; internally
 laguerre() is used.
@@ -2284,17 +2319,17 @@ There are iteration limit values for:
 The numeric method used by poly_roots(), if the hessenberg option is set.
 Its default value is 60.
 
+=item laguerre
+
+The numeric method used by laguerre(). Laguerre's method is used within
+sturm_bisection_roots() once it has narrowed its search in on an individual
+root, and of course laguerre() may be called independently. Its default value is
+60.
+
 =item newtonraphson
 
 The numeric method used by newtonraphson(). The Newton-Raphson method is offered
 as an alternative to Laguerre's method.  Its default value is 60.
-
-=item laguerre
-
-The numeric method used by laguerre(). Laguerre's method is used within
-sturm_bisection_roots() once it has narrowed its search in on an individual root,
-and of course laguerre() may be called independently. Its default value is
-60.
 
 =item sturm_bisection
 
@@ -2506,7 +2541,8 @@ Eigenvalues", Math. Comp., v64,#210, pp.763-776(1995).
 
 For starting out, you may want to read
 
-William Press, Brian P. Flannery, Saul A. Teukolsky, and William T. Vetterling I<Numerical Recipes in C>.
+William Press, Brian P. Flannery, Saul A. Teukolsky, and William T. Vetterling
+I<Numerical Recipes in C>.
 Cambridge University Press, 1988.
 They have a web site for their book, L<http://www.nr.com/>.
 
@@ -2537,7 +2573,8 @@ Acton, Forman S. I<Numerical Methods That Work>. New York: Harper & Row, Publish
 =over 5
 
 Lively, opinionated book on numerical equation solving. I looked it up when it
-became obvious that everyone was quoting Acton when discussing Laguerre's method.
+became obvious that everyone was quoting Acton when discussing Laguerre's
+method.
 
 =back
 
