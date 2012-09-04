@@ -64,7 +64,7 @@ use warnings;
 @EXPORT_OK = ( @{ $EXPORT_TAGS{'classical'} }, @{ $EXPORT_TAGS{'numeric'} },
 	@{ $EXPORT_TAGS{'sturm'} }, @{ $EXPORT_TAGS{'utility'} } );
 
-our $VERSION = '2.62_3';
+our $VERSION = '2.63';
 
 #
 # Options to set or unset to force poly_roots() to use different
@@ -1244,7 +1244,7 @@ sub poly_evaluate
 		#
 		# It could happen. Someone might type \$x instead of $x.
 		#
-		@values = ( (ref $xval_ref eq "SCALAR")? $$xval_ref: $xval_ref);
+		@values = ((ref $xval_ref eq "SCALAR")? $$xval_ref: $xval_ref);
 	}
 
 	#
@@ -1690,7 +1690,7 @@ sub laguerre
 		#
 		# It could happen. Someone might type \$x instead of $x.
 		#
-		@xvalues = ( (ref $xval_ref eq "SCALAR")? $$xval_ref: $xval_ref);
+		@xvalues = ((ref $xval_ref eq "SCALAR")? $$xval_ref: $xval_ref);
 	}
 
 	foreach my $x (@xvalues)
@@ -1728,13 +1728,6 @@ sub laguerre
 			my $h = $g * $g - $d2y/$y;
 			my $f = sqrt(($n - 1) * ($n * $h - $g*$g));
 			$f = - $f if (abs($g - $f) > abs($g + $f));
-if (ref($f) eq "Math::Complex") {
-print "Iteration $its, x = $x, y = $y, dy = $dy, d2y = $d2y\n";
-print "g = $g\nh = $h\nf = $f\n";
-print "g * g = ", $g*$g, "\n";
-print "n * h = ", $n*$h, "\n";
-print "n * h - g*g = ", $n*$h - $g*$g, "\n\n";
-}
 
 			#
 			#### g = $g
@@ -1793,7 +1786,7 @@ sub newtonraphson
 		#
 		# It could happen. Someone might type \$x instead of $x.
 		#
-		@xvalues = ( (ref $xval_ref eq "SCALAR")? $$xval_ref: $xval_ref);
+		@xvalues = ((ref $xval_ref eq "SCALAR")? $$xval_ref: $xval_ref);
 	}
 
 	#
@@ -1969,8 +1962,8 @@ B<NOTE>: this function is replaced by the option function C<poly_option()>.
 
 =head3 poly_option()
 
-Set options that affect the behavior of the C<poly_roots()> function. All options
-are set to either 1 ("on") or 0 ("off"). See also L</poly_iteration()>
+Set options that affect the behavior of the C<poly_roots()> function. All
+options are set to either 1 ("on") or 0 ("off"). See also L</poly_iteration()>
 and L</poly_tolerance()>.
 
 This is the option function that deprecates C<set_hessenberg()> and
@@ -2015,16 +2008,18 @@ solving methods.
 
 Reduce polynomials to a lower degree through variable substitution, if possible.
 
-For example, with varsubst set to one and the polynomial to solve is C<9x**6 + 128x**3 + 21>,
-then C<poly_roots()> will reduce the polynomial to C<9y**2 + 128y + 21>, where y = x**3,
+For example, with C<varsubst> set to one and the polynomial to solve being
+C<9x**6 + 128x**3 + 21>, C<poly_roots()> will reduce the polynomial to
+C<9y**2 + 128y + 21> (where C<y = x**3>),
 and solve the quadratic (either classically or numerically, depending
 on the hessenberg option). Taking the cube root of each quadratic root
 completes the operation.
 
-This has the benefit of having a simpler matrix to solve, or if the hessenberg option
-is set to zero, has the effect of being able to use one of the classical methods on a
-polynomial of high degree. In the above example, the order-six polynomial gets solved
-with the quadratic_roots() function if the hessenberg option is zero.
+This has the benefit of having a simpler matrix to solve, or if the
+C<hessenberg> option is set to zero, has the effect of being able to use one of
+the classical methods on a polynomial of high degree. In the above example, the
+order-six polynomial gets solved with the quadratic_roots() function if the
+hessenberg option is zero.
 
 Currently the variable substitution is fairly simple and will only look
 for gaps of zeros in the coefficients that are multiples of the prime numbers
@@ -2094,8 +2089,9 @@ Return the number of I<unique>, I<real> roots of the polynomial.
 
   $unique_roots = poly_real_root_count(@coefficients);
 
-For example, the equation C<(x + 3)**3> forms the polynomial C<x**3 + 9x**2 + 27x + 27>,
-but since all three of its roots are identical, C<poly_real_root_count(1, 9, 27, 27)> will return 1.
+For example, the equation C<(x + 3)**3> forms the polynomial
+C<x**3 + 9x**2 + 27x + 27>, but since all three of its roots are identical,
+C<poly_real_root_count(1, 9, 27, 27)> will return 1.
 
 Likewise, C<poly_real_root_count(1, -8, 25)> will return 0 because the two roots
 of C<x**2 -8x + 25> are both complex.
@@ -2108,17 +2104,6 @@ This function is the all-in-one function to use instead of
           sturm_sign_count(sturm_sign_plus_inf(\@chain));
 
 if you don't intend to use the Sturm chain for anything else.
-
-=head3 poly_sturm_chain()
-
-Returns the chain of Sturm functions used to evaluate the number of roots of a
-polynomial in a range of X values.
-
-If you feed in a sequence of X values to the Sturm functions, you can tell where
-the (real, not complex) roots of the polynomial are by counting the number of
-times the Y values change sign.
-
-See L</poly_real_root_count()> above for an example of its use.
 
 =head3 sturm_real_root_range_count()
 
@@ -2136,6 +2121,31 @@ This is equivalent to:
   my @chain = poly_sturm_chain(@coefficients);
   my @signs = sturm_sign_chain(\@chain, [$x0, $x1]);
   $unique_roots = sturm_sign_count(@{$signs[0]}) - sturm_sign_count(@{$signs[1]});
+
+=head3 sturm_bisection_roots()
+
+Return the I<real> roots counted by L</sturm_real_root_range_count()>. Uses the
+bisection method combined with C<sturm_real_range_count()> to narrow the range
+to a single root, then uses L</laguerre()> to find the value.
+
+  my($from, $to) = (-1000, 0);
+  my @chain = poly_sturm_chain(@coefficients);
+  my @roots = sturm_bisection_roots(\@chain, $from, $to);
+
+As it is using the Sturm functions, it will find only the real roots.
+
+Internally, laguerre() is used by sturm_bisection_roots().
+
+=head3 poly_sturm_chain()
+
+Returns the chain of Sturm functions used to evaluate the number of roots of a
+polynomial in a range of X values.
+
+If you feed in a sequence of X values to the Sturm functions, you can tell where
+the (real, not complex) roots of the polynomial are by counting the number of
+times the Y values change sign.
+
+See L</poly_real_root_count()> above for an example of its use.
 
 =head3 Sturm Sign Sequence Functions
 
@@ -2202,28 +2212,16 @@ such as those returned by the L</Sturm Sign Sequence Functions>
 See L</poly_real_root_count()> and L</sturm_real_root_range_count()> for
 examples of its use.
 
-=head3 sturm_bisection_roots()
-
-Return the I<real> roots counted by L</sturm_real_root_range_count()>. Uses the
-bisection method combined with C<sturm_real_range_count()> to narrow the range
-to a single root, then uses L</laguerre()> to find the value.
-
-  my($from, $to) = (-1000, 0);
-  my @chain = poly_sturm_chain(@coefficients);
-  my @roots = sturm_bisection_roots(\@chain, $from, $to);
-
-As it is using the Sturm functions, it will find only the real roots.
-
-Internally, laguerre() is used by sturm_bisection_roots().
-
 =head2 Utility Functions
 
-These are internal functions used by the other functions listed above,
-but which may also be useful to the user. They are all exported under the tag "utility".
+These are internal functions used by the other functions listed above
+that may also be useful to the user, or which affect the behavior of
+other functions. They are all exported under the tag "utility".
 
 =head3 epsilon()
 
-Returns the machine epsilon value that was calculated when this module was loaded.
+Returns the machine epsilon value that was calculated when this module was
+loaded.
 
 The value may be changed, although this in general is not recommended.
 
@@ -2272,18 +2270,21 @@ for polynomials.
 For each x value the function will attempt to find a root closest to it.
 The function will return real roots only.
 
+This is the function used by L</sturm_bisection_roots()> after narrowing its
+search to a range containing a single root.
+
 =head3 newtonraphson()
 
-Like laguerre, a numerical method for finding a root of an equation.
+Like L</laguerre()>, a numerical method for finding a root of an equation.
 
-  @roots = laguerre(\@coefficients, \@xvalues);
-  push @roots, laguerre(\@coefficients, $another_xvalue);
+  @roots = newtonraphson(\@coefficients, \@xvalues);
+  push @roots, newtonraphson(\@coefficients, $another_xvalue);
 
 For each x value the function will attempt to find a root closest to it.
 The function will return real roots only.
 
-This function is provided for comparisons purposes for the user; internally
-laguerre() is used.
+This function is provided as an alternative to laguerre(). It is not
+used internally by any other functions.
 
 =head3 poly_iteration()
 
@@ -2302,13 +2303,14 @@ simply by looking at the return value of poly_iteration().
   # Double the limit for the hessenberg method, but set the limit
   # for Laguerre's method to 20.
   #
-  poly_iteration(hessenberg => $its_limits{hessenberg} * 2, laguerre => 12);
+  my %old_limits = poly_iteration(hessenberg => $its_limits{hessenberg} * 2,
+                      laguerre => 20);
 
   #
   # Reset the limits with the former values, but save the values we had
   # for later.
   #
-  my %hl_limits = poly_iteration(%its_limits);
+  my %hl_limits = poly_iteration(%old_limits);
 
 There are iteration limit values for:
 
@@ -2321,10 +2323,10 @@ Its default value is 60.
 
 =item laguerre
 
-The numeric method used by laguerre(). Laguerre's method is used within
+The numeric method used by L</laguerre()>. Laguerre's method is used within
 sturm_bisection_roots() once it has narrowed its search in on an individual
-root, and of course laguerre() may be called independently. Its default value is
-60.
+root, and of course laguerre() may be called independently. Its default value
+is 60.
 
 =item newtonraphson
 
@@ -2369,6 +2371,11 @@ Tolerances may be set for:
 The numeric method used by laguerre(). Laguerre's method is used within
 sturm_bisection_roots() once an individual root has been found within a range,
 and of course it may be called independently.
+
+=item newtonraphson
+
+The numeric method used by newtonraphson(). Newton-Raphson is, like Laguerre's
+method, a method for finding a root near the starting X value.
 
 =item fltcmp
 
@@ -2577,6 +2584,12 @@ became obvious that everyone was quoting Acton when discussing Laguerre's
 method.
 
 =back
+
+=head2 Newton-Raphson
+
+Commonly known as Newton's method. Almost every introduction to calculus
+text book will have a section on it; a Wikipedia article is at
+L<http://en.wikipedia.org/wiki/Newton%27s_method>.
 
 =head1 SEE ALSO
 
