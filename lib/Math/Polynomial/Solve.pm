@@ -30,6 +30,9 @@ use warnings;
 	'numeric' => [ qw(
 		poly_roots
 		poly_option
+		build_companion
+		balance_matrix
+		hqr_eigen_hessenberg
 		get_hessenberg
 		set_hessenberg
 	) ],
@@ -64,7 +67,7 @@ use warnings;
 @EXPORT_OK = ( @{ $EXPORT_TAGS{'classical'} }, @{ $EXPORT_TAGS{'numeric'} },
 	@{ $EXPORT_TAGS{'sturm'} }, @{ $EXPORT_TAGS{'utility'} } );
 
-our $VERSION = '2.64';
+our $VERSION = '2.65';
 
 #
 # Options to set or unset to force poly_roots() to use different
@@ -474,7 +477,7 @@ sub quartic_roots
 	elsif (abs($g * $g) < $epsilon)
 	{
 		#
-		### "Quartic branch 2, $g equals 0, within epsilon...
+		### Quartic branch 2, $g equals 0, within epsilon...
 		#
 		# Another special case: g == 0.  We have a quadratic
 		# with y-squared.
@@ -531,76 +534,62 @@ sub quartic_roots
 # From the netlib archive: http://netlib.bell-labs.com/netlib/search.html
 # In particular http://netlib.bell-labs.com/netlib/opt/companion.tgz
 
-#       BASE is the base of the floating point representation on the machine.
-#       It is 16 for base 16 float : for example, IBM system 360/370.
-#       It is 2  for base  2 float : for example, IEEE float.
-
-sub BASE ()    { 2 }
-sub BASESQR () { BASE * BASE }
-
 #
-# $matrix_ref = build_companion(@coefficients);
+# @cm = build_companion(@coefficients);
 #
-# Build the Companion Matrix of the N degree polynomial.  Return a
-# reference to the N by N matrix.
+# Build the Companion Matrix of the N degree polynomial.
+# Return an array of arrays representing the N by N matrix.
 #
 sub build_companion
 {
 	my @coefficients = @_;
-	my $n = $#coefficients;
-	my @h;			# The matrix.
+	my $n = $#coefficients - 1;
+	my @h;
 
 	#
 	### build_companion called with: @coefficients
 	#
-	# First step:  Divide by the leading coefficient.
+	# First step:  Divide by the leading coefficient and negate.
 	#
-	my $cn = shift @coefficients;
-
-	foreach my $c (@coefficients)
-	{
-		$c /= $cn;
-	}
-
-	#
-	# Why would we be calling this for a linear equation?
-	# Who knows, but if we are, then we can skip all the
-	# complicated looping.
-	#
-	if ($n == 1)
-	{
-		$h[1][1] = -$coefficients[0];
-		return \@h;
-	}
+	my $cn = - (shift @coefficients);
+	map($_ /= $cn, @coefficients);
 
 	#
 	# Next: set up the diagonal matrix.
 	#
-	for my $i (1 .. $n)
+	for my $i (0 .. $n)
 	{
-		for my $j (1 .. $n)
-		{
-			$h[$i][$j] = 0.0;
-		}
+		$h[$i][$n] = pop @coefficients;
+		map($h[$i][$_] = 0.0, 0 .. $n - 1);
 	}
 
-	for my $i (2 .. $n)
-	{
-		$h[$i][$i - 1] = 1.0;
-	}
+	map($h[$_][$_ - 1] = 1.0, 1 .. $n);
 
-	#
-	# And put in the coefficients.
-	#
-	for my $i (1 .. $n)
-	{
-		$h[$i][$n] = - (pop @coefficients);
-	}
+	return @h;
+}
 
-	#
-	##### @h
+#       BASE is the base of the floating point representation on the machine.
+#       It is 16 for base 16 float : for example, IBM system 360/370.
+#       It is 2  for base  2 float : for example, IEEE float.
+sub BASE ()    { 2 }
+sub BASESQR () { BASE * BASE }
+
+#
+# @matrix = balance_matrix(@cm);
+#
+# Balance the companion matrix created by build_companion().
+#
+# Return an array of arrays representing the N by N matrix.
+#
+sub balance_matrix
+{
+	my @h = @_;
+	my $n = $#h;
+
 	#
 	### Balancing the unsymmetric matrix A.
+	#
+	##### @h
 	#
 	# Perl code translated by Nick Ing-Simmons from FORTRAN code
 	# by Hiroshi Murakami.
@@ -615,7 +604,7 @@ sub build_companion
 	while ($noconv)
 	{
 		$noconv = 0;
-		for my $i (1 .. $n)
+		for my $i (0 .. $n)
 		{
 			#
 			# Touch only non-zero elements of companion.
@@ -628,16 +617,16 @@ sub build_companion
 			else
 			{
 				$c = 0.0;
-				for my $j (1 .. $n - 1)
+				for my $j (0 .. $n - 1)
 				{
 					$c += abs($h[$j][$n]);
 				}
 			}
 
 			my $r;
-			if ($i == 1)
+			if ($i == 0)
 			{
-				$r = abs($h[1][$n]);
+				$r = abs($h[0][$n]);
 			}
 			elsif ($i != $n)
 			{
@@ -679,9 +668,9 @@ sub build_companion
 				#C	 $h($j,$i)=$h($j,$i)*$f
 				#C   enddo
 				#C begin specific code. Touch only non-zero elements of companion.
-				if ($i == 1)
+				if ($i == 0)
 				{
-					$h[1][$n] *= $g;
+					$h[0][$n] *= $g;
 				}
 				else
 				{
@@ -694,7 +683,7 @@ sub build_companion
 				}
 				else
 				{
-					for my $j (1 .. $n)
+					for my $j (0 .. $n)
 					{
 						$h[$j][$i] *= $f;
 					}
@@ -703,22 +692,27 @@ sub build_companion
 		}	# for $i
 	}	# while $noconv
 
-	return \@h;
+	#
+	### Returning balanced matrix.
+	##### @h
+	#
+	return @h;
 }
 
 #
-# @roots = hqr_eigen_hessenberg($matrix_ref)
+# @roots = hqr_eigen_hessenberg(@matrix)
 #
 # Finds the eigenvalues of a real upper Hessenberg matrix,
-# H, stored in the array $h(1:n,1:n).  Returns a list
+# H, stored in the array $h(0:n-1,0:n-1).  Returns a list
 # of real and/or complex numbers.
 #
 sub hqr_eigen_hessenberg
 {
-	my $ref = shift;
-	my @h   = @$ref;
-	my $n   = $#h;
+	my @h = @_;
+	my $n = $#h;
 
+	#
+	### hqr_eigen_hessenberg()
 	#
 	# Eigenvalue Computation by the Householder QR method for the
 	# Real Hessenberg matrix.
@@ -732,24 +726,25 @@ sub hqr_eigen_hessenberg
 	#   Numer. Math. 14, 219-231(1970).
 	#
 	my($p, $q, $r);
-	my($w, $x, $y);
 	my $t = 0.0;
 
-	my @w;
+	my @roots;
 
 	ROOT:
-	while ($n > 0)
+	while ($n >= 0)
 	{
 		my $its = 0;
 		my $na  = $n - 1;
 
 		while ($its < $iteration{hessenberg})
 		{
+			my($w, $x, $y);
+
 			#
 			# Look for single small sub-diagonal element;
 			#
-			my $l = 1;
-			for my $d (reverse 2 .. $n)
+			my $l = 0;
+			for my $d (reverse 1 .. $n)
 			{
 				if (abs( $h[$d][ $d - 1 ] ) <= $epsilon *
 				    (abs( $h[ $d - 1 ][ $d - 1 ] ) +
@@ -767,8 +762,8 @@ sub hqr_eigen_hessenberg
 				#
 				# One (real) root found.
 				#
-				push @w, $x + $t;
 				$n--;
+				push @roots, $x + $t;
 				next ROOT;
 			}
 
@@ -789,16 +784,16 @@ sub hqr_eigen_hessenberg
 					#
 					$y = -$y if ( $p < 0.0 );
 					$y += $p;
-					push @w, $x - $w / $y;
-					push @w, $x + $y;
+					push @roots, $x - $w / $y;
+					push @roots, $x + $y;
 				}
 				else
 				{
 					#
 					# Complex or twin pair.
 					#
-					push @w, $x + $p - $y * i;
-					push @w, $x + $p + $y * i;
+					push @roots, $x + $p - $y * i;
+					push @roots, $x + $p + $y * i;
 				}
 
 				$n -= 2;
@@ -816,7 +811,7 @@ sub hqr_eigen_hessenberg
 				#
 
 				$t += $x;
-				for my $i (1 .. $n)
+				for my $i (0 .. $n)
 				{
 					$h[$i][$i] -= $x;
 				}
@@ -963,7 +958,7 @@ sub hqr_eigen_hessenberg
 			}	# for $k
 		}	# while $its
 	}	# while $n
-	return @w;
+	return @roots;
 }
 
 #
@@ -1034,16 +1029,12 @@ sub poly_roots
 	#
 	if ($option{hessenberg} or $#coefficients > 4)
 	{
-		my $matrix_ref = build_companion(@coefficients);
-
-		#
-		### Balanced Companion Matrix
-		##### (row and column 0 will be undefs)...
-		##### $matrix_ref
 		#
 		# QR iterations from the matrix.
 		#
-		@x = hqr_eigen_hessenberg($matrix_ref);
+		@x = hqr_eigen_hessenberg(
+			balance_matrix(build_companion(@coefficients))
+			);
 	}
 	elsif ($#coefficients == 4)
 	{
@@ -1942,6 +1933,15 @@ root list before calling one of the root-finding functions.
 By default, C<poly_roots()> will use the Hessenberg matrix method for solving
 polynomials. This can be changed by calling L</poly_options()>.
 
+The method of poly_roots() is almost equivalent to
+
+  @x = hqr_eigen_hessenberg(
+        balance_matrix(build_companion(@coefficients))
+        );
+
+except this doesn't check for zero coefficients and ignores the settings of
+C<poly_options()>.
+
 =head3 get_hessenberg() I<DEPRECATED>
 
 Returns 1 or 0 depending upon whether C<poly_roots()> always makes use of
@@ -2026,6 +2026,28 @@ for gaps of zeros in the coefficients that are multiples of the prime numbers
 less than or equal to 31 (2, 3, 5, et cetera).
 
 =back
+
+=head3 build_companion
+
+Creates the initial companion matrix. Returns a reference to an array of arrays
+(the internal representation of a matrix). This reference may be used as an
+argument to the L<Math::Matrix> contructor:
+
+    my $cm = build_companion(@coef);
+
+    my $m = Math::Matrix->new(@cm);
+    $m->print();
+
+The Wikipedia article at L<http://en.wikipedia.org/wiki/Companion_matrix/> has
+more information on the subject.
+
+=head3 balance_matrix
+
+Balances the matrix for eigenvalue calculation.
+
+=head3 hqr_eigen_hessenberg
+
+Returns the roots of the polynomial equation by solving the matrix created by C<build_companion()> and C<balance_matrix()>. See L</poly_roots()>.
 
 =head2 Classical Functions
 
@@ -2537,53 +2559,69 @@ from that source anymore.
 
 He referenced the following articles:
 
+=over 3
+
+=item
+
 R. S. Martin, G. Peters and J. H. Wilkinson, "The QR Algorithm for Real Hessenberg
 Matrices", Numer. Math. 14, 219-231(1970).
+
+=item
 
 B. N. Parlett and C. Reinsch, "Balancing a Matrix for Calculation of Eigenvalues
 and Eigenvectors", Numer. Math. 13, 293-304(1969).
 
+=item
+
 Alan Edelman and H. Murakami, "Polynomial Roots from Companion Matrix
 Eigenvalues", Math. Comp., v64,#210, pp.763-776(1995).
 
-For starting out, you may want to read
+=item
 
 William Press, Brian P. Flannery, Saul A. Teukolsky, and William T. Vetterling
-I<Numerical Recipes in C>.
-Cambridge University Press, 1988.
-They have a web site for their book, L<http://www.nr.com/>.
+I<Numerical Recipes in C>.  Cambridge University Press, 1988.  L<http://www.nr.com/>.
+
+=back
+
+For an overview (and useful algorithms), this is probably the book to start with.
 
 =head2 Sturm's Sequence and Laguerre's Method
+
+=over 3
+
+=item
 
 Dörrie, Heinrich. I<100 Great Problems of Elementary Mathematics; Their History and Solution>.
 New York: Dover Publications, 1965. Translated by David Antin.
 
-=over 5
+=back
 
 Discusses Charles Sturm's 1829 paper with an eye towards mathematical proof
 rather than an algorithm, but is still very useful.
 
-=back
+=over 3
+
+=item
 
 Glassner, Andrew S. I<Graphics Gems>. Boston: Academic Press, 1990. 
 
-=over 5
+=back
 
 The chapter "Using Sturm Sequences to Bracket Real Roots
 of Polynomial Equations" (by D. G. Hook and P. R. McAree) has a clearer
 description of the actual steps needed to implement Sturm's method.
 
-=back
+=over 3
+
+=item
 
 Acton, Forman S. I<Numerical Methods That Work>. New York: Harper & Row, Publishers, 1970.
 
-=over 5
+=back
 
 Lively, opinionated book on numerical equation solving. I looked it up when it
 became obvious that everyone was quoting Acton when discussing Laguerre's
 method.
-
-=back
 
 =head2 Newton-Raphson
 
@@ -2593,8 +2631,14 @@ L<http://en.wikipedia.org/wiki/Newton%27s_method>.
 
 =head1 SEE ALSO
 
+=over 3
+
+=item
+
 Forsythe, George E., Michael A. Malcolm, and Cleve B. Moler
 I<Computer Methods for Mathematical Computations>. Prentice-Hall, 1977.
+
+=back
 
 =head1 AUTHOR
 

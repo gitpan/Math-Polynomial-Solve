@@ -1,5 +1,36 @@
 Revision history for Perl extension Math::Polynomial::Solve.
 
+2.65
+     Dec 16 2012
+	- Removed the early return if-block in build_companion(). The code
+	  it was skipping is no longer in the function to be skipped, having
+	  been moved to balance_matrix().
+	- Changed the single-index loops in build_companion() to map operations.
+     Dec 15 2012
+	- Having made build_companion() and balance_matrix()
+	  exportable, change their return values from array references
+	  to arrays. This makes them easier to use with other modules.
+	- balance_matrix and hqr_eigen_hessenberg() now take an array
+	  as a parameter, for the same reason.
+	- Moved hqr_eigen_hessenberg() local variables deeper into
+	  the loop in which they're used.
+     Dec 12 2012
+	- Split balance_matrix() off of build_companion() to let
+	  build_companion() return a 'pure' companion matrix.
+	- Start documenting all this.
+     Dec 11 2012
+	- Add build_companion() and hqr_eigen_hessenberg() to the
+	  EXPORT list.
+     Dec 6 2012
+	- Merged in changes: eliminated a loop in build_companion() and
+	  changed one of the foreach loops to a map.
+	- Added cubic.pl and quartic.pl scripts to the eg/ directory.
+     Sep 28 2012
+	- De-Fortran'd the matrix used by build_companion() and
+	  hqr_eigen_hessenberg(): it is now zero-based instead of one-based.
+	  The amount of memory it saves is probably not significant, but
+	  it does put the routines in line with other matrix-handling
+	  modules, which may be useful down the road.
 2.64
      Sep 10 2012
 	- Added Newton-Raphson to the keyword list in Build.PL. Someday
