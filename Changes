@@ -1,5 +1,29 @@
 Revision history for Perl extension Math::Polynomial::Solve.
 
+2.66
+     Jan 25 2013
+	- Wrote a better paragraph describing balance_matrix().
+     Jan 15 2013
+	- Corrected the build_companion() example (varible was a scalar
+	  instead of an array).
+	- Took a first stab at documenting balance_matrix().
+     Jan 14 2013
+	- Document existence of Fortran code.
+     Jan 3 2013
+	- Found Hiroshi Murakami's Fortran code on an old flash drive!
+	  Added it to the references directory, under 'qralg' (he stated
+	  it was freely available for this purpose in an e-mail Nick
+	  Ing-Simmons forwarded to me).
+	- Replaced Dick Nickalls's cubic paper with an updated one that
+	  he pointed me to (it has a few corrections).
+     Dec 24 2012
+	- Added a reference in the documentation for balance_matrix().
+     Dec 19 2012
+	- Corrected a line in the documentation that stated build_companion()
+	  returned a reference to an array of arrays. It used to, but now
+	  that it's exported, it returns an array of arrays (no reference).
+	- Fixed a brace mismatch in example code, and deleted a redundant
+	  line about laguerre() in Sturm documentation.
 2.65
      Dec 16 2012
 	- Removed the early return if-block in build_companion(). The code
@@ -10,7 +34,7 @@ Revision history for Perl extension Math::Polynomial::Solve.
 	- Having made build_companion() and balance_matrix()
 	  exportable, change their return values from array references
 	  to arrays. This makes them easier to use with other modules.
-	- balance_matrix and hqr_eigen_hessenberg() now take an array
+	- balance_matrix() and hqr_eigen_hessenberg() now take an array
 	  as a parameter, for the same reason.
 	- Moved hqr_eigen_hessenberg() local variables deeper into
 	  the loop in which they're used.

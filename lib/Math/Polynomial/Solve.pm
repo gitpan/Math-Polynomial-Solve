@@ -67,7 +67,7 @@ use warnings;
 @EXPORT_OK = ( @{ $EXPORT_TAGS{'classical'} }, @{ $EXPORT_TAGS{'numeric'} },
 	@{ $EXPORT_TAGS{'sturm'} }, @{ $EXPORT_TAGS{'utility'} } );
 
-our $VERSION = '2.65';
+our $VERSION = '2.66';
 
 #
 # Options to set or unset to force poly_roots() to use different
@@ -122,7 +122,7 @@ my $epsilon;
 
 BEGIN
 {
-	$epsilon = 0.25;
+	$epsilon = 0.125;
 	my $epsilon2 = $epsilon/2.0;
 
 	while (1.0 + $epsilon2 > 1.0)
@@ -1939,8 +1939,8 @@ The method of poly_roots() is almost equivalent to
         balance_matrix(build_companion(@coefficients))
         );
 
-except this doesn't check for zero coefficients and ignores the settings of
-C<poly_options()>.
+except this wouldn't check for leading and trailing zero coefficients, and it
+ignores the settings of C<poly_options()>.
 
 =head3 get_hessenberg() I<DEPRECATED>
 
@@ -2029,25 +2029,29 @@ less than or equal to 31 (2, 3, 5, et cetera).
 
 =head3 build_companion
 
-Creates the initial companion matrix. Returns a reference to an array of arrays
-(the internal representation of a matrix). This reference may be used as an
-argument to the L<Math::Matrix> contructor:
+Creates the initial companion matrix. Returns an array of arrays (the
+internal representation of a matrix). This may be used as an argument to
+the L<Math::Matrix> contructor:
 
-    my $cm = build_companion(@coef);
+  my @cm = build_companion(@coef);
 
-    my $m = Math::Matrix->new(@cm);
-    $m->print();
+  my $m = Math::Matrix->new(@cm);
+  $m->print();
 
 The Wikipedia article at L<http://en.wikipedia.org/wiki/Companion_matrix/> has
 more information on the subject.
 
 =head3 balance_matrix
 
-Balances the matrix for eigenvalue calculation.
+Balances the matrix (makes the rows and columns have similar norms) by
+applying a matrix transformation with a diagonal matrix of powers of two.
+This is used to help prevent any rounding errors that occur if the elements
+of the matrix differ greatly in magnitude.
 
 =head3 hqr_eigen_hessenberg
 
-Returns the roots of the polynomial equation by solving the matrix created by C<build_companion()> and C<balance_matrix()>. See L</poly_roots()>.
+Returns the roots of the polynomial equation by solving the matrix created by
+C<build_companion()> and C<balance_matrix()>. See L</poly_roots()>.
 
 =head2 Classical Functions
 
@@ -2142,21 +2146,19 @@ This is equivalent to:
 
   my @chain = poly_sturm_chain(@coefficients);
   my @signs = sturm_sign_chain(\@chain, [$x0, $x1]);
-  $unique_roots = sturm_sign_count(@{$signs[0]}) - sturm_sign_count(@{$signs[1]});
+  $no_unique_roots = sturm_sign_count(@{$signs[0]}) - sturm_sign_count(@{$signs[1]});
 
 =head3 sturm_bisection_roots()
 
 Return the I<real> roots counted by L</sturm_real_root_range_count()>. Uses the
 bisection method combined with C<sturm_real_range_count()> to narrow the range
-to a single root, then uses L</laguerre()> to find the value.
+to a single root, then uses L</laguerre()> to find its value.
 
   my($from, $to) = (-1000, 0);
   my @chain = poly_sturm_chain(@coefficients);
   my @roots = sturm_bisection_roots(\@chain, $from, $to);
 
 As it is using the Sturm functions, it will find only the real roots.
-
-Internally, laguerre() is used by sturm_bisection_roots().
 
 =head3 poly_sturm_chain()
 
@@ -2202,7 +2204,7 @@ to examine the internals of the Sturm functions:
     print $xval[$j], "\n",
           "\t", join(", ", @s), "], sign count = ",
           sturm_sign_count(@s), "\n\n";
-    }
+  }
 
 Similar examinations can be made at plus and minus infinity:
 
@@ -2534,7 +2536,7 @@ His matlab cubic solver is at
 L<http://people.mech.kuleuven.ac.be/~bruyninc/matlab/cubic.m>.
 
 Andy Stein has written a version of cubic.m that will work with
-vectors.  It is included with this package in the eg directory.
+vectors.  It is included with this package in the C<eg> directory.
 
 =head2 The quartic
 
@@ -2546,16 +2548,17 @@ at L<http://forum.swarthmore.edu/dr.math/faq/faq.cubic.equations.html>.
 =head2 Quintic and higher.
 
 Back when this module could only solve polynomials of degrees 1 through 4,
-Matz Kindahl, the author of Math::Polynomial, suggested the C<poly_roots()>
-function. Later on, Nick Ing-Simmons, who was working on a perl binding
-to the GNU Scientific Library, sent a perl translation of Hiroshi
+Matz Kindahl, the original author of Math::Polynomial, suggested the
+C<poly_roots()> function. Later on, Nick Ing-Simmons, who was working on a
+perl binding to the GNU Scientific Library, sent a perl translation of Hiroshi
 Murakami's Fortran implementation of the QR Hessenberg algorithm, and it
 fit very well into the C<poly_roots()> function. Quintics and higher degree
 polynomials can now be solved, albeit through numeric analysis methods.
 
 Hiroshi Murakami's Fortran routines were at
 L<http://netlib.bell-labs.com/netlib/>, but do not seem to be available
-from that source anymore.
+from that source anymore. However, his files have been located and are now
+included in the C<references/qralg> directory.
 
 He referenced the following articles:
 
@@ -2571,15 +2574,12 @@ Matrices", Numer. Math. 14, 219-231(1970).
 B. N. Parlett and C. Reinsch, "Balancing a Matrix for Calculation of Eigenvalues
 and Eigenvectors", Numer. Math. 13, 293-304(1969).
 
+Fortran code for this routine is at L<http://netlib.sandia.gov/eispack/balanc.f>, and is the basis for L</balance_matrix()>.
+
 =item
 
 Alan Edelman and H. Murakami, "Polynomial Roots from Companion Matrix
 Eigenvalues", Math. Comp., v64,#210, pp.763-776(1995).
-
-=item
-
-William Press, Brian P. Flannery, Saul A. Teukolsky, and William T. Vetterling
-I<Numerical Recipes in C>.  Cambridge University Press, 1988.  L<http://www.nr.com/>.
 
 =back
 
@@ -2637,6 +2637,11 @@ L<http://en.wikipedia.org/wiki/Newton%27s_method>.
 
 Forsythe, George E., Michael A. Malcolm, and Cleve B. Moler
 I<Computer Methods for Mathematical Computations>. Prentice-Hall, 1977.
+
+=item
+
+William Press, Brian P. Flannery, Saul A. Teukolsky, and William T. Vetterling
+I<Numerical Recipes in C>.  Cambridge University Press, 1988.  L<http://www.nr.com/>.
 
 =back
 
