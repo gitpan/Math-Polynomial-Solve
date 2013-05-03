@@ -3,8 +3,9 @@
 #
 use Carp;
 use Getopt::Long;
-use Math::Polynomial::Solve qw(:classical ascending_order);
+use Math::Polynomial::Solve qw(:numeric ascending_order);
 use Math::Complex;
+use Math::Matrix;
 use strict;
 use warnings;
 #use IO::Prompt;
@@ -16,14 +17,41 @@ GetOptions('ascending' => \$ascending);
 
 ascending_order($ascending);
 
-while ($line = prompt("Quartic: ", -num))
+while ($line = prompt("Polynomial: ", -num))
 {
 	my @coef = split(/,? /, $line);
 
-	my @x = quartic_roots(@coef);
+	my @h = build_companion(@coef);
+	my $m1 = Math::Matrix->new(@h);
+	$m1->print();
+	@h = balance_matrix(@h);
+	$m1 = Math::Matrix->new(@h);
+	$m1->print();
+	my @x = hqr_eigen_hessenberg(@h);
 	print rootprint(@x), "\n\n";
 }
 exit(0);
+
+sub rowprint
+{
+	my $ref = shift;
+	my @h = @$ref;
+	my $n = $#h;
+	my $fmt = "%8.4f";
+	my $string= "";
+
+	for my $i (0..$n)
+	{
+		my @formatted;
+		for my $j (0..$n)
+		{
+			push @formatted, cartesian_format($fmt, $fmt, $h[$i][$j]);
+		}
+		$string .= "[" . join(", ", @formatted) . "]\n";
+	}
+	$string .= "\n";
+	return $string;
+}
 
 sub cartesian_format($$@)
 {

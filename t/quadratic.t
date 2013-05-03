@@ -1,9 +1,9 @@
 # Before `make install' is performed this script should be runnable with
 # `make test'. After `make install' it should work as `perl quadratic.t'
 
-use Test::Simple tests => 16;	# Twice the number of scalar @case.
+use Test::More tests => 32;	# Twice the number of scalar @case.
 
-use Math::Polynomial::Solve qw(quadratic_roots fltcmp poly_constmult);
+use Math::Polynomial::Solve qw(quadratic_roots :utility ascending_order);
 use Math::Complex;
 use strict;
 use warnings;
@@ -25,26 +25,46 @@ foreach (@case)
 {
 	my @coef = @$_;
 	my @x = quadratic_roots(@coef);
-	my $b = -sumof(@x) * $coef[0];
-	my $c = prodof(@x) * $coef[0];
 
-	ok((fltcmp($b, $coef[1]) == 0 and fltcmp($c, $coef[2]) == 0),
+	ok(allzeroes(\@coef, @x),
 		"   [ " . join(", ", @coef) . " ]");
 
-	#print "\nmy \$b = $b; \$coef[1] = ", $coef[1], "\n";
-	#print "\nmy \$c = $c; \$coef[2] = ", $coef[2], "\n";
-	#print rootformat(@x), "\n\n";
+	#diag(rootformat(@x), "\n\n");
 
 	#
 	# Again, with the negative coefficients.
 	#
 	@coef = poly_constmult(\@coef, -1);
 	@x = quadratic_roots(@coef);
-	$b = -sumof(@x) * $coef[0];
-	$c = prodof(@x) * $coef[0];
 
-	ok((fltcmp($b, $coef[1]) == 0 and fltcmp($c, $coef[2]) == 0),
+	ok(allzeroes(\@coef, @x),
 		"   [ " . join(", ", @coef) . " ]");
+
+	#diag(rootformat(@x), "\n\n");
+}
+
+ascending_order(1);
+
+foreach (@case)
+{
+	my @coef = reverse @$_;
+	my @x = quadratic_roots(@coef);
+
+	ok(allzeroes(\@coef, @x),
+		"   [ " . join(", ", @coef) . " ]");
+
+	#diag(rootformat(@x), "\n\n");
+
+	#
+	# Again, with the negative coefficients.
+	#
+	@coef = poly_constmult(\@coef, -1);
+	@x = quadratic_roots(@coef);
+
+	ok(allzeroes(\@coef, @x),
+		"   [ " . join(", ", @coef) . " ]");
+
+	#diag(rootformat(@x), "\n\n");
 }
 
 1;

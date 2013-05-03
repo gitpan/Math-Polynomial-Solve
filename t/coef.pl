@@ -1,4 +1,12 @@
 use Math::Complex;
+use Math::Polynomial::Solve qw(:utility);
+
+sub allzeroes
+{
+	my($p_ref, @xvals) = @_;
+	my @yvals = grep {fltcmp($_, 0) != 0} poly_evaluate($p_ref, @xvals);
+	return (scalar @yvals)? 0: 1;
+}
 
 sub sumof
 {
@@ -34,6 +42,19 @@ sub polycmp
 
 	return 0;
 }
+
+sub polychain2str
+{
+	my(@chain) = @_;
+	my $str = "";
+	foreach my $j (0..$#chain)
+	{
+		my @c = @{$chain[$j]};
+		$str .= sprintf("    f%2d: [", $j) . join(", ", @c) . "]\n";
+	}
+	return $str;
+}
+
 
 sub cartesian_format_signed($$@)
 {

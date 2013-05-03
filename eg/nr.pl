@@ -2,7 +2,8 @@
 #
 use Carp;
 use Getopt::Long;
-use Math::Polynomial::Solve qw(:sturm);
+use Math::Polynomial::Solve qw(:sturm :utility ascending_order);
+use Math::Complex;
 use strict;
 use warnings;
 #use IO::Prompt;
@@ -14,23 +15,22 @@ GetOptions('ascending' => \$ascending);
 
 ascending_order($ascending);
 
-while ($line = prompt("Polynomial: "))
+while ($line = prompt("Polynomial: ", -num))
 {
 	my @coef = split(/,? /, $line);
 
 	$line = prompt("X values: ");
 	my @xvals = split(/,? /, $line);
 
-	my @chain = poly_sturm_chain( @coef );
-	my @signs = sturm_sign_chain(\@chain, \@xvals);
-
 	print "\nPolynomial: [", join(", ", @coef), "]\n";
 
-	foreach my $j (0..$#signs)
+	my @roots = newtonraphson(\@coef, \@xvals);
+	my @zeros = poly_evaluate(\@coef, \@roots);
+
+	for my $j (0 .. scalar @xvals)
 	{
-		my @s = @{$signs[$j]};
-		print sprintf("x = %4f: [", $xvals[$j]) . join("   ", @s), "] ",
-			sturm_sign_count(@s), "\n\n";
+		print "x: " . $xvals[$j] . "; root: " . $roots[$j] .
+			"; p(root): " . $zeros[$j] . ";\n";
 	}
 }
 

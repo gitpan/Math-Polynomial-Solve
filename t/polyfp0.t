@@ -3,9 +3,9 @@
 # four or less. Cases are all 0.9216 times the values of the cases
 # in poly0.t.
 #
-use Test::Simple tests => 22;
+use Test::More tests => 44;
 
-use Math::Polynomial::Solve qw(:numeric fltcmp);
+use Math::Polynomial::Solve qw(:numeric fltcmp ascending_order);
 use Math::Complex;
 use warnings;
 use strict;
@@ -35,22 +35,16 @@ poly_option(hessenberg => 0);
 foreach (@case)
 {
 	my @coef = @$_;
-	my $n = $#coef;
 	my @x = poly_roots(@coef);
-	my $cn_1 = -sumof(@x) * $coef[0];
-	my $c0 = prodof(@x) * $coef[0];
-	$c0 = -$c0 if ($n % 2 == 1);
 
-	ok((fltcmp($cn_1, $coef[1]) == 0 and fltcmp($c0, $coef[$n]) == 0),
+	ok(allzeroes(\@coef, @x),
 		"   [ " . join(", ", @coef) . " ]");
 
-	#print "\nmy \$cn_1 = $cn_1; \$coef[1] = ", $coef[1], "\n";
-	#print "\nmy \$c0 = $c0; \$coef[$n] = ", $coef[$n], "\n";
-	#print rootformat(@x), "\n\n";
+	#diag(rootformat(@x), "\n\n");
 }
 
 #
-# Repeate, except that the next line sets the
+# Repeat, except that the next line sets the
 # 'always use the iterative matrix' flag.
 #
 poly_option(hessenberg => 1);
@@ -58,18 +52,48 @@ poly_option(hessenberg => 1);
 foreach (@case)
 {
 	my @coef = @$_;
-	my $n = $#coef;
 	my @x = poly_roots(@coef);
-	my $cn_1 = -sumof(@x) * $coef[0];
-	my $c0 = prodof(@x) * $coef[0];
-	$c0 = -$c0 if ($n % 2 == 1);
 
-	ok((fltcmp($cn_1, $coef[1]) == 0 and fltcmp($c0, $coef[$n]) == 0),
+	ok(allzeroes(\@coef, @x),
 		"   [ " . join(", ", @coef) . " ]");
 
-	#print "\nmy \$b = $b; \$coef[1] = ", $coef[1], "\n";
-	#print "\nmy \$e = $e; \$coef[$n] = ", $coef[$n], "\n";
-	#print rootformat(@x), "\n\n";
+	#diag(rootformat(@x), "\n\n");
+}
+
+ascending_order(1);
+
+#
+# All of these tests will be dispatched to the
+# quadratic_roots, cubic_roots, and quartic_roots functions.
+#
+poly_option(hessenberg => 0);
+
+foreach (@case)
+{
+	my @coef = reverse @$_;
+	my @x = poly_roots(@coef);
+
+	ok(allzeroes(\@coef, @x),
+		"   [ " . join(", ", @coef) . " ]");
+
+	#diag(rootformat(@x), "\n\n");
+}
+
+#
+# Repeat, except that the next line sets the
+# 'always use the iterative matrix' flag.
+#
+poly_option(hessenberg => 1);
+
+foreach (@case)
+{
+	my @coef = reverse @$_;
+	my @x = poly_roots(@coef);
+
+	ok(allzeroes(\@coef, @x),
+		"   [ " . join(", ", @coef) . " ]");
+
+	#diag(rootformat(@x), "\n\n");
 }
 
 1;

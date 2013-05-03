@@ -64,10 +64,13 @@ use warnings;
 	) ],
 );
 
-@EXPORT_OK = ( @{ $EXPORT_TAGS{'classical'} }, @{ $EXPORT_TAGS{'numeric'} },
-	@{ $EXPORT_TAGS{'sturm'} }, @{ $EXPORT_TAGS{'utility'} } );
+@EXPORT_OK = ( 'ascending_order',
+	@{ $EXPORT_TAGS{'classical'} },
+	@{ $EXPORT_TAGS{'numeric'} },
+	@{ $EXPORT_TAGS{'sturm'} },
+	@{ $EXPORT_TAGS{'utility'} } );
 
-our $VERSION = '2.66';
+our $VERSION = '2.67';
 
 #
 # Options to set or unset to force poly_roots() to use different
@@ -136,8 +139,20 @@ BEGIN
 }
 
 #
+# Flag to determine whether calling order is
+# ($an_1, $an_2, $an_3, ...) or if it is
+# ($a0, $a1, $a2, $a3, ...)
+#
+# The flag is only going to exist for about three
+# versions, starting with version 2.67, as the default
+# changes over a deprecation cycle.
+#
+my $ascending_flag = 0;		# default 0, in a later version it will be 1.
+
+#
 # sign($x);
 #
+# Not exported.
 #
 sub sign
 {
@@ -153,6 +168,8 @@ sub sign
 # Like other functions ending in "cmp", returns -1 if $x < $y, 1 if
 # $x > $y, and 0 if the arguments are equal, the difference being that
 # the comparisons are made within a tolerance set in poly_tolerance().
+#
+# In the :utility export set.
 #
 sub fltcmp
 {
@@ -170,6 +187,8 @@ sub fltcmp
 # Returns the machine epsilon value used internally by this module.
 # If overriding the machine epsilon, returns the old value.
 #
+# In the :utility export set.
+#
 sub epsilon
 {
 	my $eps = $epsilon;
@@ -181,6 +200,8 @@ sub epsilon
 # Get/Set the flags that tells the module to use the QR Hessenberg
 # method regardless of the degree of the polynomial.
 # OBSOLETE: use poly_option() instead!
+#
+# In the :utility export set.
 #
 sub get_hessenberg
 {
@@ -195,7 +216,28 @@ sub set_hessenberg
 }
 
 #
+# $asending = ascending_order();
+# $oldorder = ascending_order($neworder);
+#
+# Returns the machine epsilon value used internally by this module.
+# If overriding the machine epsilon, returns the old value.
+#
+sub ascending_order
+{
+	my $ascend = $ascending_flag;
+
+	if (scalar @_ > 0)
+	{
+		$ascending_flag = ($_[0] == 0)? 0: 1;
+	}
+
+	return $ascend;
+}
+
+#
 # poly_option(opt1 => 1, opt2 => 0, ...);
+#
+# In the :numeric export set.
 #
 sub poly_option
 {
@@ -225,6 +267,8 @@ sub poly_option
 
 #
 # poly_tolerance(opt1 => n, opt2 => n, ...);
+#
+# In the :utility export set.
 #
 sub poly_tolerance
 {
@@ -256,6 +300,8 @@ sub poly_tolerance
 
 #
 # poly_iteration(opt1 => n, opt2 => n, ...);
+#
+# In the :utility export set.
 #
 sub poly_iteration
 {
@@ -290,10 +336,11 @@ sub poly_iteration
 #
 # @x = linear_roots($a, $b)
 #
+# In the :classical export set.
 #
 sub linear_roots
 {
-	my($a, $b) = @_;
+	my($a, $b) = ($ascending_flag)? reverse @_: @_;
 
 	if (abs($a) < $epsilon)
 	{
@@ -307,10 +354,11 @@ sub linear_roots
 #
 # @x = quadratic_roots($a, $b, $c)
 #
+# In the :classical export set.
 #
 sub quadratic_roots
 {
-	my($a, $b, $c) = @_;
+	my($a, $b, $c) = ($ascending_flag)? reverse @_: @_;
 
 	if (abs($a) < $epsilon)
 	{
@@ -332,10 +380,11 @@ sub quadratic_roots
 #
 # @x = cubic_roots($a, $b, $c, $d)
 #
+# In the :classical export set.
 #
 sub cubic_roots
 {
-	my($a, $b, $c, $d) = @_;
+	my($a, $b, $c, $d) = ($ascending_flag)? reverse @_: @_;
 	my @x;
 
 	if (abs($a) < $epsilon)
@@ -344,7 +393,20 @@ sub cubic_roots
 		return @x;
 	}
 
-	return (0, quadratic_roots($a, $b, $c)) if (abs($d) < $epsilon);
+	#
+	# We're calling exported functions that also check
+	# the $ascending_flag. To avoid reversing the reversed,
+	# temporarily set the flag to zero and reset before returning.
+	#
+	my $temp_ascending_flag = $ascending_flag;
+	$ascending_flag = 0;
+
+	if (abs($d) < $epsilon)
+	{
+		@x = quadratic_roots($a, $b, $c);
+		$ascending_flag = $temp_ascending_flag;
+		return (0, @x);
+	}
 
 	my $xN = -$b/3/$a;
 	my $yN = $d + $xN * ($c + $xN * ($b + $a * $xN));
@@ -412,16 +474,18 @@ sub cubic_roots
 		@x = ($xN + $delta, $xN + $delta, $xN - 2 * $delta);
 	}
 
+	$ascending_flag = $temp_ascending_flag;
 	return @x;
 }
 
 #
 # @x = quartic_roots($a, $b, $c, $d, $e)
 #
+# In the :classical export set.
 #
 sub quartic_roots
 {
-	my($a,$b,$c,$d,$e) = @_;
+	my($a,$b,$c,$d,$e) = ($ascending_flag)? reverse @_: @_;
 	my @x = ();
 
 	if (abs($a) < $epsilon)
@@ -430,7 +494,20 @@ sub quartic_roots
 		return @x;
 	}
 
-	return (0, cubic_roots($a, $b, $c, $d)) if (abs($e) < $epsilon);
+	#
+	# We're calling exported functions that also check
+	# the $ascending_flag. To avoid reversing the reversed,
+	# temporarily set the flag to zero and reset before returning.
+	#
+	my $temp_ascending_flag = $ascending_flag;
+	$ascending_flag = 0;
+
+	if (abs($e) < $epsilon)
+	{
+		@x = cubic_roots($a, $b, $c, $d);
+		$ascending_flag = $temp_ascending_flag;
+		return (0, @x);
+	}
 
 	#
 	# First step:  Divide by the leading coefficient.
@@ -524,6 +601,7 @@ sub quartic_roots
 		push @x, quadratic_roots(1, -$alpha, $gamma);
 	}
 
+	$ascending_flag = $temp_ascending_flag;
 	return ($x[0] - $b4, $x[1] - $b4, $x[2] - $b4, $x[3] - $b4);
 }
 
@@ -540,9 +618,11 @@ sub quartic_roots
 # Build the Companion Matrix of the N degree polynomial.
 # Return an array of arrays representing the N by N matrix.
 #
+# In the :numeric export set.
+#
 sub build_companion
 {
-	my @coefficients = @_;
+	my @coefficients = ($ascending_flag)? reverse @_: @_;
 	my $n = $#coefficients - 1;
 	my @h;
 
@@ -580,6 +660,8 @@ sub BASESQR () { BASE * BASE }
 # Balance the companion matrix created by build_companion().
 #
 # Return an array of arrays representing the N by N matrix.
+#
+# In the :numeric export set.
 #
 sub balance_matrix
 {
@@ -705,6 +787,8 @@ sub balance_matrix
 # Finds the eigenvalues of a real upper Hessenberg matrix,
 # H, stored in the array $h(0:n-1,0:n-1).  Returns a list
 # of real and/or complex numbers.
+#
+# In the :numeric export set.
 #
 sub hqr_eigen_hessenberg
 {
@@ -967,9 +1051,11 @@ sub hqr_eigen_hessenberg
 # Coefficients are fed in highest degree first.  Equation 5x**5 + 4x**4 + 2x + 8
 # would be fed in with @x = poly_roots(5, 4, 0, 0, 2, 8);
 #
+# In the :numeric export set.
+#
 sub poly_roots
 {
-	my(@coefficients) = @_;
+	my(@coefficients) = ($ascending_flag)? reverse @_: @_;
 	my(@x, @zero_x);
 	my $subst_degree = 1;
 
@@ -978,7 +1064,8 @@ sub poly_roots
 	#
 	# Check for zero coefficients in the higher-powered terms.
 	#
-	shift @coefficients while (scalar @coefficients and abs($coefficients[0]) < $epsilon);
+	shift @coefficients while (scalar @coefficients and
+				   abs($coefficients[0]) < $epsilon);
 
 	if (@coefficients == 0)
 	{
@@ -989,10 +1076,11 @@ sub poly_roots
 	#
 	# How about zero coefficients in the low terms?
 	#
-	while (scalar @coefficients and abs($coefficients[$#coefficients]) < $epsilon)
+	while (scalar @coefficients and
+	       abs($coefficients[$#coefficients]) < $epsilon)
 	{
 		push @zero_x, 0;
-		pop @coefficients;
+		pop @coefficients
 	}
 
 	#
@@ -1001,10 +1089,12 @@ sub poly_roots
 	#
 	### %option
 	#
-	if ($option{root_function} and poly_nonzero_term_count(@coefficients) == 2)
+	if ($option{root_function} and
+	    poly_nonzero_term_count(@coefficients) == 2)
 	{
 		return  @zero_x,
-			root(-$coefficients[$#coefficients]/$coefficients[0], $#coefficients);
+			root(-$coefficients[$#coefficients]/$coefficients[0],
+			     $#coefficients);
 	}
 
 	#
@@ -1027,6 +1117,13 @@ sub poly_roots
 	#### @coefficients
 	#### $subst_degree
 	#
+
+	#
+	# The following root solvers do their own coefficient
+	# reversing, so undo the earlier reversal now.
+	#
+	@coefficients = reverse @coefficients if ($ascending_flag);
+
 	if ($option{hessenberg} or $#coefficients > 4)
 	{
 		#
@@ -1071,9 +1168,10 @@ sub poly_roots
 # the original equation are found by taking the cube roots of each
 # root of the quadratic.
 #
+# Not exported.
 sub poly_analysis
 {
-	my(@coefficients) = @_;
+	my(@coefficients) = ($ascending_flag)? reverse @_: @_;
 	my @czp;
 	my $m = 1;
 
@@ -1135,6 +1233,8 @@ sub poly_analysis
 #
 # Count the number of non-zero terms. Simple enough, yes?
 #
+# In the :utility export set.
+#
 sub poly_nonzero_term_count
 {
 	my(@coefficients) = @_;
@@ -1154,9 +1254,11 @@ sub poly_nonzero_term_count
 # a monic polynomial form (all coefficients divided by the coefficient
 # of the highest power).
 #
+# In the :utility export set.
+#
 sub simplified_form
 {
-	my @coefficients = @_;
+	my @coefficients = ($ascending_flag)? reverse @_: @_;
 
 	shift @coefficients while (scalar @coefficients and abs($coefficients[0]) < $epsilon);
 
@@ -1169,7 +1271,7 @@ sub simplified_form
 	my $a = $coefficients[0];
 	$coefficients[$_] /= $a for (0..$#coefficients);
 
-	return @coefficients;
+	return ($ascending_flag)? reverse @coefficients: @coefficients;
 }
 
 #
@@ -1178,9 +1280,11 @@ sub simplified_form
 # Returns the derivative of a polynomial. The constant value is
 # lost of course.
 #
+# In the :utility export set.
+#
 sub poly_derivative
 {
-	my @coefficients = @_;
+	my @coefficients = ($ascending_flag)? reverse @_: @_;
 	my $degree = $#coefficients;
 
 	return () if ($degree < 1);
@@ -1188,7 +1292,7 @@ sub poly_derivative
 	$coefficients[$_] *= $degree-- for (0..$degree - 2);
 
 	pop @coefficients;
-	return @coefficients;
+	return ($ascending_flag)? reverse @coefficients: @coefficients;
 }
 
 #
@@ -1197,9 +1301,11 @@ sub poly_derivative
 # Returns the antiderivative of a polynomial. The constant value is
 # always set to zero; to override this $integral[$#integral] = $const;
 #
+# In the :utility export set.
+#
 sub poly_antiderivative
 {
-	my @coefficients = @_;
+	my @coefficients = ($ascending_flag)? reverse @_: @_;
 	my $degree = scalar @coefficients;
 
 	return (0) if ($degree < 1);
@@ -1207,7 +1313,7 @@ sub poly_antiderivative
 	$coefficients[$_] /= $degree-- for (0..$degree - 2);
 
 	push @coefficients, 0;
-	return @coefficients;
+	return ($ascending_flag)? reverse @coefficients: @coefficients;
 }
 
 #
@@ -1216,11 +1322,13 @@ sub poly_antiderivative
 # Returns a list of y-points on the polynomial for a corresponding
 # list of x-points, using Horner's method.
 #
+# In the :utility export set.
+#
 sub poly_evaluate
 {
 	my($coef_ref, $xval_ref) = @_;
 
-	my @coefficients = @$coef_ref;
+	my @coefficients = ($ascending_flag)? reverse @$coef_ref: @$coef_ref;
 	my @values;
 
 	#
@@ -1261,10 +1369,12 @@ sub poly_evaluate
 # Returns p(x), p'(x), and p"(x) of the polynomial for an
 # x-value, using Horner's method.
 #
+# In the :utility export set.
+#
 sub poly_derivaluate
 {
 	my($coef_ref, $x) = @_;
-	my(@coefficients) = @$coef_ref;
+	my(@coefficients) = ($ascending_flag)? reverse @$coef_ref: @$coef_ref;
 	my $n = $#coefficients;
 	my $val = shift @coefficients;
 	my $d1val = $val * $n;
@@ -1320,6 +1430,8 @@ sub poly_derivaluate
 # Synthetic division for polynomials. Returns references to the quotient
 # and the remainder.
 #
+# In the :utility export set.
+#
 sub poly_divide
 {
 	my $n_ref = shift;
@@ -1328,6 +1440,14 @@ sub poly_divide
 	my @numerator = @$n_ref;
 	my @divisor = @$d_ref;
 	my @quotient;
+
+	my $temp_ascending_flag = $ascending_flag;
+	if ($ascending_flag)
+	{
+		@numerator = reverse @numerator;
+		@divisor = reverse @divisor;
+		$ascending_flag = 0;
+	}
 
 	#
 	# Just checking... removing any leading zeros.
@@ -1376,11 +1496,21 @@ sub poly_divide
 	#
 	shift @numerator while (@numerator and abs($numerator[0]) < $epsilon);
 	push @numerator, 0 unless (@numerator);
+
+	if ($temp_ascending_flag)
+	{
+		@numerator = reverse @numerator;
+		@quotient = reverse @quotient;
+	}
+
+	$ascending_flag = $temp_ascending_flag;
 	return (\@quotient, \@numerator);
 }
 
 #
 # @new_coeffients = poly_constmult(\@coefficients, $multiplier);
+#
+# In the :utility export set.
 #
 sub poly_constmult
 {
@@ -1393,6 +1523,7 @@ sub poly_constmult
 #
 # @sturm_seq = poly_sturm_chain(@coefficients)
 #
+# In the :sturm export set.
 #
 sub poly_sturm_chain
 {
@@ -1400,31 +1531,47 @@ sub poly_sturm_chain
 	my $degree = $#coefficients;
 	my @chain;
 	my($q, $r);
+	my $temp_ascending_flag = $ascending_flag;
+
+	if ($ascending_flag)
+	{
+		$ascending_flag = 0;
+		@coefficients = reverse @coefficients;
+	}
 
 	my $f1 = [@coefficients];
 	my $f2 = [poly_derivative(@coefficients)];
 
 	push @chain, $f1;
 
-	return @chain if ($degree < 1);
+	#
+	# NOTE:
+	# Go back to the 2.66 version of this block once
+	# the $ascending_flag check is obsolete.
+	#
+	SKIPIT: {
+		last SKIPIT if ($degree < 1); #return @chain if ($degree < 1);
 
-	push @chain, $f2;
-
-	return @chain if ($degree < 2);
-
-	do
-	{
-		($q, $r) = poly_divide($f1, $f2);
-		$f1 = $f2;
-		$f2 = [poly_constmult($r, -1)];
 		push @chain, $f2;
+
+		last SKIPIT if ($degree < 2); #return @chain if ($degree < 2);
+
+		do
+		{
+			($q, $r) = poly_divide($f1, $f2);
+			$f1 = $f2;
+			$f2 = [poly_constmult($r, -1)];
+			push @chain, $f2;
+		}
+		while ($#$r > 0);
+
 	}
-	while ($#$r > 0);
 
 	#
 	### poly_sturm_chain:
 	#### @chain
 	#
+	$ascending_flag = $temp_ascending_flag;
 	return @chain;
 }
 
@@ -1435,14 +1582,30 @@ sub poly_sturm_chain
 # a polynomial. Use this if you don't intend to do anything else
 # requiring the Sturm chain.
 #
+# In the :sturm export set.
+#
 sub poly_real_root_count
 {
-	my(@coefficients) = @_;
+	my @coefficients = @_;
+	my $temp_ascending_flag = $ascending_flag;
+
+	if ($ascending_flag)
+	{
+		@coefficients = reverse @coefficients;
+		$ascending_flag = 0;
+	}
 
 	my @chain = poly_sturm_chain(@coefficients);
 
-	return sturm_sign_count(sturm_sign_minus_inf(\@chain)) -
+	my $count = 
+		sturm_sign_count(sturm_sign_minus_inf(\@chain)) -
 		sturm_sign_count(sturm_sign_plus_inf(\@chain));
+
+	$ascending_flag = $temp_ascending_flag;
+	return $count;
+
+	#return sturm_sign_count(sturm_sign_minus_inf(\@chain)) -
+	#	sturm_sign_count(sturm_sign_plus_inf(\@chain));
 }
 
 #
@@ -1451,6 +1614,8 @@ sub poly_real_root_count
 # An all-in-one function for finding the number of real roots in
 # a polynomial over a range in X. Use this if you don't intend to do
 # anything else requiring the Sturm chain.
+#
+# In the :sturm export set.
 #
 sub sturm_real_root_range_count
 {
@@ -1466,6 +1631,8 @@ sub sturm_real_root_range_count
 #
 # Using the bisection method on the root count method of Sturm, finds
 # the real roots of a polynomial function. Will not find complex roots.
+#
+# In the :sturm export set.
 #
 sub sturm_bisection_roots
 {
@@ -1555,6 +1722,8 @@ sub sturm_bisection_roots
 #
 # Return an array of signs from the chain at minus infinity.
 #
+# In the :sturm export set.
+#
 sub sturm_sign_minus_inf
 {
 	my($chain_ref) = @_;
@@ -1573,6 +1742,8 @@ sub sturm_sign_minus_inf
 # @signs = sturm_plus_inf(\@chain);
 #
 # Return an array of signs from the chain at infinity.
+#
+# In the :sturm export set.
 #
 sub sturm_sign_plus_inf
 {
@@ -1594,6 +1765,8 @@ sub sturm_sign_plus_inf
 # Return an array of signs for each x-value passed in each function in
 # the Sturm chain.
 #
+# In the :sturm export set.
+#
 sub sturm_sign_chain
 {
 	my($chain_ref, $xvals_ref) = @_;
@@ -1601,6 +1774,14 @@ sub sturm_sign_chain
 	my $x_count = $#$xvals_ref;
 	my @sign_chain;
 	my $col = 0;
+
+	#
+	# Temporarily force $ascending_flag to zero because
+	# the first row of the chain will have the the
+	# coefficients in that order.
+	#
+	my $temp_ascending_flag = $ascending_flag;
+	$ascending_flag = 0;
 
 	push @sign_chain, [] for (0..$x_count);
 
@@ -1633,6 +1814,7 @@ sub sturm_sign_chain
 		$col++;
 	}
 
+	$ascending_flag = $temp_ascending_flag;
 	return @sign_chain;
 }
 
@@ -1640,6 +1822,8 @@ sub sturm_sign_chain
 # $sign_changes = sturm_sign_count(@signs);
 #
 # Count the number of changes from sign to sign in the array.
+#
+# In the :sturm export set.
 #
 sub sturm_sign_count
 {
@@ -1661,6 +1845,8 @@ sub sturm_sign_count
 #
 # Find the roots nearby the given X values.
 #
+# In the :utility export set.
+#
 sub laguerre
 {
 	no Math::Complex;
@@ -1668,6 +1854,14 @@ sub laguerre
 	my $n = $#$p_ref;
 	my @xvalues;
 	my @roots;
+
+	my $temp_ascending_flag = $ascending_flag;
+
+	if ($ascending_flag)
+	{
+		$ascending_flag = 0;
+		$p_ref = [reverse @$p_ref];
+	}
 
 	#
 	# Allow some flexibility in sending the x-values.
@@ -1749,6 +1943,8 @@ sub laguerre
 		### root found at iteration $its
 		#### $x
 	}
+
+	$ascending_flag = $temp_ascending_flag;
 	return @roots;
 }
 
@@ -1757,6 +1953,8 @@ sub laguerre
 #
 # Find the roots nearby the given X values.
 #
+# In the :utility export set.
+#
 sub newtonraphson
 {
 	no Math::Complex;
@@ -1764,6 +1962,14 @@ sub newtonraphson
 	my $n = $#$p_ref;
 	my @xvalues;
 	my @roots;
+
+	my $temp_ascending_flag = $ascending_flag;
+
+	if ($ascending_flag)
+	{
+		$ascending_flag = 0;
+		$p_ref = [reverse @$p_ref];
+	}
 
 	#
 	# Allow some flexibility in sending the x-values.
@@ -1819,6 +2025,8 @@ sub newtonraphson
 		### root found at iteration $its
 		#### $x
 	}
+
+	$ascending_flag = $temp_ascending_flag;
 	return @roots;
 }
 
@@ -1883,6 +2091,27 @@ or
   my @x4 = quartic_roots($a, $b, $c, $d, $e);
 
 or
+  use Math::Complex;  # The roots may be complex numbers.
+  use Math::Polynomial;
+  use Math::Polynomial::Solve qw(:classical ascending_order);
+
+  ascending_order(1); # Change default coefficient order for M::P::S.
+
+  #
+  # Form 8*x**3 - 6*x - 1
+  #
+  my $p1 = Math::Polynomial->new(-1, -6, 0, 8);
+
+  #
+  # Use Math::Polynomial's coefficient order.
+  # If ascending_order() had not been called,
+  # the statement would be:
+  #
+  # my @roots = poly_roots(reverse $p1->coefficients);
+  #
+  my @roots = poly_roots($p1->coefficients);
+
+or
 
   use Math::Polynomial::Solve qw(:utility);
 
@@ -1915,6 +2144,57 @@ find the number of real roots present in a range of X values.
 
 In addition to the root-finding functions, the internal functions have
 also been exported for your use.
+
+=head2 EXPORTED BY DEFAULT
+
+=head3 ascending_order()
+
+Changes the default order of the coefficents to the functions.
+
+When Math::Polynomial::Solve was originally written, it followed the
+calling convention of L<Math::Polynomial>, using the highest degree
+coefficient, followed by the next highest degree coefficient, and so
+on in descending order.
+
+Later Math::Polynomial was re-written, and the order of the coefficients were
+put in ascending order, e.g.:
+
+  use Math::Polynomial;
+
+  #
+  # Create the polynomial 8*x**3 - 6*x - 1.
+  #
+  $fpx = Math::Polynomial->new(-1, -6, 0, 8);
+
+If you use Math::Polynomial with this module, it will probably be
+more convenient to change the default parameter list of
+Math::Polynomial::Solve's functions, using the ascending_order() function:
+
+  use Math::Polynomial;
+  use Math::Polynomial::Solve qw(:classical :numeric);
+
+  ascending_order(1);
+
+  my $fp4 = Math::Polynomial->interpolate([1 .. 4], [14, 19, 25, 32]);
+
+  #
+  # Find roots of $fp4.
+  #
+  my @fp4_roots = quartic_roots($fp4->coefficients);
+
+or
+
+  my @fp4_roots = poly_roots($fp4->coefficients);
+
+If C<ascending_order(1)> had not been called, the previous line of code
+would have been written instead as
+
+  my @fp4_roots = poly_roots(reverse $fp4->coefficients);
+
+The function is a temporary measure to help with the change in the API when
+version 3.00 of this module is released. At that point coefficients will be
+in ascending order by default, and you will need to use C<ascending_order(0)>
+to use the old (current) style, although you will get a deprecation warning.
 
 =head2 Numeric Functions
 
@@ -2151,7 +2431,7 @@ This is equivalent to:
 =head3 sturm_bisection_roots()
 
 Return the I<real> roots counted by L</sturm_real_root_range_count()>. Uses the
-bisection method combined with C<sturm_real_range_count()> to narrow the range
+bisection method combined with C<sturm_real_root_range_count()> to narrow the range
 to a single root, then uses L</laguerre()> to find its value.
 
   my($from, $to) = (-1000, 0);
@@ -2498,8 +2778,12 @@ and a remainder.
 
 =head1 EXPORT
 
-There are no default exports. The functions may be individually named in an
-export list, but there are also four export tags:
+Currently there is one default export, L<ascending_order|ascending_order()>,
+although this function will be deprecated after version 3.00 of this module
+is released.
+
+The remaining functions may be individually named in an export list,
+but there are also four export tags:
 L<classical|Classical Functions>,
 L<numeric|Numeric Functions>,
 L<sturm|Sturm Functions>, and
